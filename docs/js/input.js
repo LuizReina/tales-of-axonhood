@@ -16,6 +16,7 @@ export function setupInput(net, canvas) {
       case 'KeyI': toggleInventory(); break;
       case 'KeyG': toggleGuild(); break;
       case 'KeyP': if (state.selectedPlayerId) net.party('invite', state.selectedPlayerId); break;
+      case 'KeyO': if (state.selectedPlayerId) net.guild('invite', state.selectedPlayerId); break;
       case 'KeyL': net.party('leave'); break;
       case 'KeyQ': useFirstPotion(net); break;
       case 'Enter': document.getElementById('chatText').focus(); e.preventDefault(); break;

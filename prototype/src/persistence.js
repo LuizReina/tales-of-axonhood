@@ -31,6 +31,8 @@ export function markGuildsDirty() { guildDirty = true; }
 
 // Chamado periodicamente pelo loop; escreve só o que mudou.
 export function flush() {
+  if (!charDirty && !guildDirty) return;
+  if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true }); // recria a pasta se ela sumir em runtime
   if (charDirty) { writeFileSync(CHAR_FILE, JSON.stringify(characters)); charDirty = false; }
   if (guildDirty) { writeFileSync(GUILD_FILE, JSON.stringify(guilds, null, 2)); guildDirty = false; }
 }

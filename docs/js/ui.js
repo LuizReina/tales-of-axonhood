@@ -68,8 +68,12 @@ export function renderGuild() {
     body.innerHTML = `
       <div class="row"><b>${esc(state.guild.name)}</b> <span class="small">(${state.guild.online} on)</span></div>
       <div class="small" style="margin:6px 0">${state.guild.members.map(esc).join(', ')}</div>
-      <button class="ghost" id="guildLeave">Sair da guilda</button>`;
+      <div class="row"><button id="guildInvite">Convidar alvo</button><button class="ghost" id="guildLeave">Sair</button></div>`;
     el('guildLeave').onclick = () => state._net.guild('leave');
+    el('guildInvite').onclick = () => {
+      if (state.selectedPlayerId) state._net.guild('invite', state.selectedPlayerId);
+      else pushChat('sys', 'Clique num jogador para selecioná-lo antes de convidar.');
+    };
   } else {
     body.innerHTML = `
       <input id="guildName" placeholder="Nome da guilda" maxlength="24" />
@@ -91,7 +95,10 @@ export function pushChat(channel, html) {
 
 export function showInvite() {
   if (!state.invite) return;
-  el('inviteTxt').textContent = `${state.invite.from} convidou você para o grupo.`;
+  const i = state.invite;
+  el('inviteTxt').textContent = i.kind === 'guild'
+    ? `${i.from} convidou você para a guilda "${i.guild}".`
+    : `${i.from} convidou você para o grupo.`;
   el('invitePopup').hidden = false;
 }
 export const hideInvite = () => { el('invitePopup').hidden = true; state.invite = null; };
@@ -112,7 +119,10 @@ export function setupHandlers(net) {
   el('eqWeapon').onclick = () => net.unequip('weapon');
   el('eqArmor').onclick = () => net.unequip('armor');
 
-  el('inviteAccept').onclick = () => { net.party('accept'); hideInvite(); };
+  el('inviteAccept').onclick = () => {
+    if (state.invite?.kind === 'guild') net.guild('acceptInvite'); else net.party('accept');
+    hideInvite();
+  };
   el('inviteDecline').onclick = hideInvite;
 
   const chat = el('chatText');

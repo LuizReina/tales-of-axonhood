@@ -4,16 +4,24 @@
 export class Net {
   constructor(url) {
     this.handlers = {};
+    console.log('[net] abrindo WebSocket:', url);
     this.ws = new WebSocket(url);
     this.ws.onmessage = (e) => {
-      const m = JSON.parse(e.data);
-      (this.handlers[m.t] || []).forEach((h) => h(m));
+      let m; try { m = JSON.parse(e.data); } catch { console.error('[net] mensagem inválida:', e.data); return; }
+      console.debug('[net] <-', m.t);
+      (this.handlers[m.t] || []).forEach((h) => {
+        try { h(m); } catch (err) { console.error(`[net] erro no handler "${m.t}":`, err); }
+      });
     };
-    this.ws.onopen = () => (this.handlers.open || []).forEach((h) => h());
-    this.ws.onclose = () => (this.handlers.close || []).forEach((h) => h());
+    this.ws.onopen = () => { console.log('[net] conectado ✓'); (this.handlers.open || []).forEach((h) => h()); };
+    this.ws.onclose = (e) => { console.warn('[net] fechado (code', e.code + ')'); (this.handlers.close || []).forEach((h) => h()); };
+    this.ws.onerror = () => console.error('[net] erro de WebSocket (servidor no ar? porta certa?)');
   }
   on(type, cb) { (this.handlers[type] ||= []).push(cb); return this; }
-  send(obj) { if (this.ws.readyState === 1) this.ws.send(JSON.stringify(obj)); }
+  send(obj) {
+    if (this.ws.readyState === 1) { this.ws.send(JSON.stringify(obj)); console.debug('[net] ->', obj.t); }
+    else console.warn('[net] tentou enviar', obj.t, 'com socket não-aberto (readyState', this.ws.readyState + ')');
+  }
 
   // Atalhos de intenção que o cliente envia (o servidor é quem decide o resultado).
   hello(playerId, name, cls) { this.send({ t: 'hello', playerId, name, cls }); }

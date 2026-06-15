@@ -52,25 +52,29 @@ A regra de ouro: **toda a lógica vive no servidor**. O cliente é "burro" (mand
 Por isso, na migração para Unity, **o servidor não muda** — só se troca a camada de apresentação.
 
 ```
-prototype/
-├── server.js              # bootstrap (HTTP + WebSocket + loop de tick)
-├── src/                   # SERVIDOR — reaproveitado 100% na migração
-│   ├── config.js          # constantes e classes
-│   ├── world.js           # mapa, colisão, AOI, spawns
-│   ├── data/*.json        # tabelas de itens e mobs (viram ScriptableObjects no Unity)
-│   ├── data.js            # carrega as tabelas
-│   ├── progression.js     # xp/level/stats
-│   ├── inventory.js       # helpers de inventário
-│   ├── social.js          # party + guild
-│   ├── persistence.js     # save em JSON (vira Postgres/SQLite em produção)
-│   └── game.js            # estado + roteamento + tick + AOI (núcleo)
-└── public/js/
-    ├── net.js    ◄── FRONTEIRA: protocolo. Vira classe C# (WebSocket+JsonUtility) no Unity.
-    ├── state.js  ◄── FRONTEIRA: WorldState. Conceito migra para uma classe C#.
-    ├── input.js  ✗   descartável — vira Input System + raycast no Unity
-    ├── render.js ✗   descartável — vira cenas/prefabs/Sprites no Unity
-    ├── ui.js     ✗   descartável — vira uGUI / UI Toolkit no Unity
-    └── main.js       cola (vira um GameManager no Unity)
+repo/
+├── docs/                  # CLIENTE estático (publicado no GitHub Pages; servido pelo servidor local)
+│   ├── index.html
+│   ├── css/style.css
+│   └── js/
+│       ├── net.js    ◄── FRONTEIRA: protocolo. Vira classe C# (WebSocket+JsonUtility) no Unity.
+│       ├── state.js  ◄── FRONTEIRA: WorldState. Conceito migra para uma classe C#.
+│       ├── input.js  ✗   descartável — vira Input System + raycast no Unity
+│       ├── render.js ✗   descartável — vira cenas/prefabs/Sprites no Unity
+│       ├── ui.js     ✗   descartável — vira uGUI / UI Toolkit no Unity
+│       └── main.js       cola (vira um GameManager no Unity)
+└── prototype/
+    ├── server.js          # bootstrap (HTTP + WebSocket + tick); serve ../docs
+    └── src/               # SERVIDOR — reaproveitado 100% na migração
+        ├── config.js      # constantes e classes
+        ├── world.js       # mapa, colisão, AOI, spawns, portais, arena do boss
+        ├── data/*.json    # tabelas de itens e mobs (viram ScriptableObjects no Unity)
+        ├── data.js        # carrega as tabelas
+        ├── progression.js # xp/level/stats
+        ├── inventory.js   # helpers de inventário
+        ├── social.js      # party + guild (com convites)
+        ├── persistence.js # save em JSON (vira Postgres/SQLite em produção)
+        └── game.js        # estado + roteamento + tick + AOI + combate/boss (núcleo)
 ```
 
 ### Contrato de protocolo (cliente ⇄ servidor, JSON sobre WebSocket)

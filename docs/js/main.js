@@ -6,8 +6,27 @@ import { setupInput } from './input.js';
 import { startRender } from './render.js';
 import * as ui from './ui.js';
 
+export const VERSION = 'v0.2.0';
 const el = (id) => document.getElementById(id);
 const canvas = el('game');
+if (el('version')) el('version').textContent = `Tales of Axonhood ${VERSION}`;
+if (el('verTag')) el('verTag').textContent = VERSION;
+
+// Decide a URL do servidor. Local (localhost/file) usa o próprio host; hospedado estaticamente
+// (GitHub Pages) precisa de um servidor externo informado via ?server=wss://… senão não há onde conectar.
+function serverUrl() {
+  const q = new URLSearchParams(location.search).get('server');
+  if (q) return q;
+  const h = location.hostname;
+  if (!h || h === 'localhost' || h === '127.0.0.1') return `ws://${location.host || 'localhost:3000'}`;
+  return null;
+}
+
+// Captura qualquer erro de JS e mostra na tela (loginHint) + console, para diagnosticar fácil.
+function showErr(msg) { const h = el('loginHint'); if (h) { h.style.color = '#ff6b6b'; h.textContent = '⚠ ' + msg; } }
+addEventListener('error', (e) => { console.error('[erro global]', e.error || e.message); showErr(String(e.message)); });
+addEventListener('unhandledrejection', (e) => { console.error('[promessa rejeitada]', e.reason); showErr(String(e.reason)); });
+console.log('[main] script carregado');
 
 // Identidade por aba: sessionStorage difere entre abas (ótimo p/ testar multiplayer local)
 // e sobrevive a recarregar a mesma aba (persistência do personagem).
@@ -26,10 +45,17 @@ el('name').addEventListener('keydown', (e) => { if (e.key === 'Enter') start(); 
 function start() {
   const name = el('name').value.trim();
   sessionStorage.setItem('axon_name', name);
+  const url = serverUrl();
+  if (!url) {
+    showErr('Este é o cliente estático (GitHub Pages) — não há servidor aqui. Rode o servidor local (veja o README) e abra http://localhost:3000, ou informe ?server=wss://SEU-SERVIDOR na URL.');
+    return;
+  }
+  el('loginHint').style.color = '';
   el('loginHint').textContent = 'Conectando…';
+  console.log('[main] start() — playerId:', playerId, 'classe:', chosenClass, 'servidor:', url);
 
-  const net = new Net(`ws://${location.host}`);
-  net.on('open', () => net.hello(playerId, name, chosenClass));
+  const net = new Net(url);
+  net.on('open', () => { console.log('[main] enviando hello'); net.hello(playerId, name, chosenClass); });
   net.on('close', () => el('loginHint').textContent = 'Conexão perdida. Recarregue a página.');
   wire(net);
 }
@@ -38,6 +64,7 @@ let started = false, deathTimer = null;
 
 function wire(net) {
   net.on('init', (m) => {
+    console.log('[main] init recebido — id:', m.id);
     state.myId = m.id; state.world = m.world; state.cellSize = m.cellSize; state.aoiRadius = m.aoiRadius;
     state.items = m.items; state.self = m.self;
     el('login').hidden = true; el('hud').hidden = false;
@@ -48,6 +75,7 @@ function wire(net) {
       setupInput(net, canvas);
       startRender(canvas);
     }
+    console.log('[main] entrou no mundo ✓');
   });
 
   net.on('state', (m) => { applyState(m); ui.renderTarget(); });
@@ -71,7 +99,7 @@ function wire(net) {
     if (state.self) state.self.guildName = m.guild ? m.guild.name : null;
     ui.renderGuild(); ui.renderSelf();
   });
-  net.on('invite', (m) => { state.invite = { from: m.from, fromId: m.fromId }; ui.showInvite(); });
+  net.on('invite', (m) => { state.invite = m; ui.showInvite(); });
 
   net.on('hit', (m) => state.hits.push({ ...m, born: performance.now() }));
 

@@ -30,6 +30,17 @@ export function startRender(canvas) {
     ctx.fillStyle = '#3a4252';
     for (const o of state.world.obstacles) ctx.fillRect(sx(o.x), sy(o.y), o.w, o.h);
 
+    // portais
+    for (const portal of state.world.portals || []) {
+      const px = sx(portal.x), py = sy(portal.y);
+      const t = (performance.now() / 600) % (Math.PI * 2);
+      ctx.beginPath(); ctx.arc(px, py, 18 + Math.sin(t) * 2, 0, Math.PI * 2);
+      ctx.fillStyle = (portal.color || '#c77dff') + '44'; ctx.fill();
+      ctx.strokeStyle = portal.color || '#c77dff'; ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1;
+      ctx.fillStyle = '#fff'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText(portal.label, px, py - 24);
+    }
+
     // itens no chão
     for (const g of state.ground.values()) {
       ctx.fillStyle = g.color || '#ffd479';
@@ -42,6 +53,7 @@ export function startRender(canvas) {
       const r = state.rendered.get('m' + m.id) || m;
       drawEntity(ctx, sx(r.x), sy(r.y), m.radius || 15, m.color, m.name, m.hp, m.maxHp,
         state.target && state.target.kind === 'mob' && state.target.id === m.id, '#ff5d73');
+      if (m.say) drawBubble(ctx, sx(r.x), sy(r.y) - (m.radius || 15) - 30, m.say);
     }
     // players
     for (const p of state.players.values()) {
@@ -132,6 +144,16 @@ function drawFog(ctx, W, H, sx, sy) {
   ctx.fill('evenodd');
   ctx.strokeStyle = '#4ea1ff55'; ctx.lineWidth = 2; ctx.strokeRect(x0, y0, size, size);
   ctx.restore();
+}
+
+function drawBubble(ctx, x, y, text) {
+  ctx.font = 'bold 13px system-ui'; ctx.textAlign = 'center';
+  const w = ctx.measureText(text).width + 16;
+  ctx.fillStyle = '#f3e9ff'; ctx.strokeStyle = '#7a3fb0'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x - w / 2, y - 20, w, 24, 6); else ctx.rect(x - w / 2, y - 20, w, 24);
+  ctx.fill(); ctx.stroke(); ctx.lineWidth = 1;
+  ctx.fillStyle = '#2a0a3a'; ctx.fillText(text, x, y - 3);
 }
 
 const line = (ctx, x1, y1, x2, y2) => { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); };

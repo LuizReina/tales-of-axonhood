@@ -20,5 +20,13 @@
       { "item": "staff_oak", "chance": 0.04, "qty": 1 },
       { "item": "axe_heavy", "chance": 0.03, "qty": 1 }
     ]
+  },
+  "horseface": {
+    "name": "Phanton HorseFace", "hp": 999999, "atk": 0, "def": 9999, "xp": 0,
+    "speed": 0, "aggroRange": 600, "attackRange": 600, "attackCooldown": 2.0,
+    "radius": 34, "color": "#7a3fb0", "respawn": 5,
+    "loot": [],
+    "boss": true, "leaveAt1": true,
+    "taunts": ["Credo", "Amaldiçoado", "Horroroso", "Horrível", "Tenebroso", "Imundo", "Fétido"]
   }
 }

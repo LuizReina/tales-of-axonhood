@@ -9,7 +9,8 @@ import { PORT, TICK_RATE } from './src/config.js';
 import { initMobs, handleConnection, step } from './src/game.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const PUBLIC = join(here, 'public');
+// O cliente estático fica em /docs (raiz do repo) — a MESMA pasta que o GitHub Pages publica.
+const PUBLIC = join(here, '..', 'docs');
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
 
 const server = createServer(async (req, res) => {

@@ -2,7 +2,7 @@
 // e roda o tick com todos os sistemas (movimento, IA, combate, loot, progressão, AOI).
 // O cliente (web hoje, Unity depois) só manda intenção e desenha o que recebe daqui.
 import { PLAYER, CELL_SIZE, AOI_RADIUS, CLASSES, DEFAULT_CLASS, SAVE_INTERVAL } from './config.js';
-import { WORLD, PLAYER_SPAWN, MOB_SPAWNS, moveResolved, cellOf } from './world.js';
+import { WORLD, PLAYER_SPAWN, MOB_SPAWNS, ARENA, moveResolved, cellOf } from './world.js';
 import { ITEMS, MOBS } from './data.js';
 import { deriveStats, addXp, xpForNext } from './progression.js';
 import { addItem, consumeSlot, hasSpace } from './inventory.js';
@@ -18,6 +18,8 @@ let saveAcc = 0;
 const now = () => Date.now();
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const send = (p, obj) => { if (p.ws.readyState === 1) p.ws.send(JSON.stringify(obj)); };
+
+const inArena = (p) => p.x >= ARENA.x && p.x <= ARENA.x + ARENA.w && p.y >= ARENA.y && p.y <= ARENA.y + ARENA.h;
 
 // Está "b" (ponto qualquer) dentro da AOI de "a"?
 function inAOI(a, b) {
@@ -98,7 +100,7 @@ function spawnPlayer(ws, id, hello) {
     inventory: saved?.inventory ?? [{ item: 'potion_small', qty: 3 }],
     equipment: saved?.equipment ?? { weapon: cls === 'mage' ? 'staff_oak' : 'sword_short', armor: null },
     guildName: saved?.guildName ?? null, partyId: null,
-    targetType: null, targetId: null, atkCd: 0, dead: false, respawnAt: 0,
+    targetType: null, targetId: null, atkCd: 0, teleCd: 0, dead: false, respawnAt: 0,
     color: CLASSES[cls].color, hp: 1,
   };
   recompute(p);
@@ -177,7 +179,7 @@ function handleParty(p, m) {
     if (!target || target.id === p.id) return;
     const r = social.invitePlayer(p, target);
     if (!r.ok) return sys(p, r.reason);
-    send(target, { t: 'invite', from: p.name, fromId: p.id });
+    send(target, { t: 'invite', kind: 'party', from: p.name, fromId: p.id });
     sys(p, `Convite enviado para ${target.name}.`);
     notifyParty([...r.party.members]);
   } else if (m.action === 'accept') {
@@ -192,6 +194,20 @@ function handleParty(p, m) {
 }
 
 function handleGuild(p, m) {
+  if (m.action === 'invite') {
+    const target = players.get(m.id);
+    if (!target || target.id === p.id) return;
+    const r = social.inviteToGuild(p, target);
+    if (!r.ok) return sys(p, r.reason);
+    send(target, { t: 'invite', kind: 'guild', from: p.name, guild: p.guildName });
+    return sys(p, `Convite de guilda enviado para ${target.name}.`);
+  }
+  if (m.action === 'acceptInvite') {
+    const r = social.acceptGuildInvite(p);
+    if (!r.ok) return sys(p, r.reason);
+    persist(p); sendGuild(p);
+    return sys(p, `Entrou na guilda "${r.guild.name}".`);
+  }
   let r;
   if (m.action === 'create') r = social.createGuild(p, m.name);
   else if (m.action === 'join') r = social.joinGuild(p, m.name);
@@ -268,8 +284,8 @@ function grantXp(killer, mob) {
   const party = social.partyOf(killer);
   let recipients = [killer];
   if (party) {
-    recipients = [...party.members].map((id) => players.get(id))
-      .filter((o) => o && !o.dead && inAOI(o, mob));
+    // XP dividido IGUALMENTE entre todos os membros do grupo (ex.: 20 de XP, grupo de 2 = 10 cada).
+    recipients = [...party.members].map((id) => players.get(id)).filter(Boolean);
     if (recipients.length === 0) recipients = [killer];
   }
   const share = Math.max(1, Math.floor(mob.def.xp / recipients.length));
@@ -302,6 +318,15 @@ export function step(dt) {
       p.x = r.x; p.y = r.y;
     }
     if (p.atkCd > 0) p.atkCd -= dt;
+    // portais: encostar teleporta (com cooldown para não repetir ao chegar)
+    if (p.teleCd > 0) p.teleCd -= dt;
+    else for (const portal of WORLD.portals) {
+      if (Math.hypot(p.x - portal.x, p.y - portal.y) < 30) {
+        p.x = portal.tx; p.y = portal.ty; p.teleCd = 3;
+        sys(p, portal.id === 1 ? 'Você entrou na arena de Phanton HorseFace…' : 'Você saiu da arena.');
+        break;
+      }
+    }
   }
 
   // 2) IA dos mobs
@@ -311,10 +336,21 @@ export function step(dt) {
       continue;
     }
     if (mob.atkCd > 0) mob.atkCd -= dt;
-    // alvo: player vivo mais próximo dentro do aggro
+
+    // frases do boss ("na tela", via balão acima dele)
+    if (mob.def.taunts) {
+      mob.tauntCd = (mob.tauntCd || 0) - dt;
+      if (mob.tauntCd <= 0) {
+        mob.say = { text: mob.def.taunts[Math.floor(Math.random() * mob.def.taunts.length)], until: now() + 2500 };
+        mob.tauntCd = 3 + Math.random() * 3;
+      }
+    }
+
+    // alvo: player vivo mais próximo no aggro. O boss só enxerga quem está NA ARENA e com HP > 1.
     let target = null, best = mob.def.aggroRange;
     for (const p of players.values()) {
       if (p.dead) continue;
+      if (mob.def.boss && (!inArena(p) || p.hp <= 1)) continue;
       const d = dist(mob, p);
       if (d < best) { best = d; target = p; }
     }
@@ -327,14 +363,24 @@ export function step(dt) {
         mob.x = r.x; mob.y = r.y;
       } else if (mob.atkCd <= 0) {
         mob.atkCd = mob.def.attackCooldown;
-        const dmg = Math.max(1, mob.def.atk - target.def);
-        target.hp -= dmg;
-        emitHit(mob.x, mob.y, target.x, target.y, dmg, 'melee', target.hp <= 0);
-        sendYou(target);
-        if (target.hp <= 0) killPlayer(target);
+        if (mob.def.leaveAt1) {
+          // nunca mata: ataca à distância e deixa o alvo sempre com 1 de HP
+          if (target.hp > 1) {
+            const dmg = target.hp - 1;
+            target.hp = 1;
+            emitHit(mob.x, mob.y, target.x, target.y, dmg, 'ranged', false);
+            sendYou(target);
+          }
+        } else {
+          const dmg = Math.max(1, mob.def.atk - target.def);
+          target.hp -= dmg;
+          emitHit(mob.x, mob.y, target.x, target.y, dmg, 'melee', target.hp <= 0);
+          sendYou(target);
+          if (target.hp <= 0) killPlayer(target);
+        }
       }
-    } else {
-      // sem alvo: volta devagar para o ponto de origem
+    } else if (mob.def.speed > 0) {
+      // sem alvo: volta devagar para o ponto de origem (o boss fica parado)
       const d = dist(mob, { x: mob.spawnX, y: mob.spawnY });
       if (d > 4) {
         const ux = (mob.spawnX - mob.x) / d, uy = (mob.spawnY - mob.y) / d;
@@ -389,7 +435,7 @@ export function step(dt) {
     const me = cellOf(p.x, p.y);
     const vp = [], vm = [], vg = [];
     for (const o of players.values()) if (inAOI(p, o)) vp.push({ id: o.id, name: o.name, cls: o.cls, color: o.color, x: Math.round(o.x), y: Math.round(o.y), hp: o.hp, maxHp: o.maxHp, level: o.level, dead: o.dead });
-    for (const mob of mobs.values()) if (!mob.dead && inAOI(p, mob)) vm.push({ id: mob.id, kind: mob.kind, name: mob.def.name, color: mob.def.color, radius: mob.def.radius, x: Math.round(mob.x), y: Math.round(mob.y), hp: mob.hp, maxHp: mob.def.hp });
+    for (const mob of mobs.values()) if (!mob.dead && inAOI(p, mob)) vm.push({ id: mob.id, kind: mob.kind, name: mob.def.name, color: mob.def.color, radius: mob.def.radius, x: Math.round(mob.x), y: Math.round(mob.y), hp: mob.hp, maxHp: mob.def.hp, boss: !!mob.def.boss, say: (mob.say && now() < mob.say.until) ? mob.say.text : null });
     for (const g of ground.values()) if (inAOI(p, g)) vg.push({ id: g.id, item: g.item, name: ITEMS[g.item]?.name, color: ITEMS[g.item]?.color, x: Math.round(g.x), y: Math.round(g.y) });
     send(p, { t: 'state', cell: me, players: vp, mobs: vm, ground: vg, target: p.targetId && p.targetType ? { kind: p.targetType, id: p.targetId } : null });
   }

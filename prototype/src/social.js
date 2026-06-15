@@ -54,6 +54,22 @@ export function leaveParty(player) {
 }
 
 // ---- Guild (persistente; membros guardados por playerId + nome para exibição) ----
+const guildInvites = new Map(); // inviteeServerId -> { guildName, fromName }
+
+export function inviteToGuild(inviter, invitee) {
+  if (!inviter.guildName) return { ok: false, reason: 'Você não está numa guilda.' };
+  if (invitee.guildName) return { ok: false, reason: 'Jogador já tem guilda.' };
+  guildInvites.set(invitee.id, { guildName: inviter.guildName, fromName: inviter.name });
+  return { ok: true };
+}
+
+export function acceptGuildInvite(invitee) {
+  const inv = guildInvites.get(invitee.id);
+  guildInvites.delete(invitee.id);
+  if (!inv) return { ok: false, reason: 'Nenhum convite de guilda pendente.' };
+  return joinGuild(invitee, inv.guildName);
+}
+
 export function createGuild(player, rawName) {
   const name = (rawName || '').trim().slice(0, 24);
   if (!name) return { ok: false, reason: 'Nome inválido.' };
