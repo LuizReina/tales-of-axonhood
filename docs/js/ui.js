@@ -12,7 +12,7 @@ export function renderSelf() {
   el('selfAtk').textContent = s.atk;
   el('selfDef').textContent = s.def;
   el('selfGold').textContent = s.gold ?? 0;
-  el('selfGuild').textContent = s.guildName ? `🛡 ${s.guildName}` : 'sem guilda';
+  el('selfGuild').textContent = (s.guildName ? `🛡 ${s.guildName}` : 'sem guilda') + (s.spouseName ? ` · 💍 ${s.spouseName}` : '');
   bar('hpFill', 'hpTxt', s.hp, s.maxHp, `${s.hp}/${s.maxHp}`);
   bar('xpFill', 'xpTxt', s.xp, s.xpNext, `XP ${s.xp}/${s.xpNext}`);
 }
@@ -223,10 +223,20 @@ export function pushChat(channel, html) {
 export function showInvite() {
   if (!state.invite) return;
   const i = state.invite;
-  el('inviteTxt').textContent = i.kind === 'guild'
-    ? `${i.from} convidou você para a guilda "${i.guild}".`
+  const txt = i.kind === 'guild' ? `${i.from} convidou você para a guilda "${i.guild}".`
+    : i.kind === 'duel' ? `⚔️ ${i.from} desafiou você para um duelo!`
+    : i.kind === 'marry' ? `💍 ${i.from} pediu você em casamento.`
     : `${i.from} convidou você para o grupo.`;
+  el('inviteTxt').textContent = txt;
   el('invitePopup').hidden = false;
+}
+
+export function openRank() { el('rankPanel').hidden = false; if (state._net) state._net.rank(); }
+export function renderRank() {
+  const body = el('rankBody'); const list = state.rank || [];
+  body.innerHTML = list.length
+    ? list.map((r, i) => `<div class="rankRow"><span><span class="pos">${i + 1}</span> ${esc(r.name)} <span class="small">Lv${r.level}</span></span><span class="pw">${r.power}</span></div>`).join('')
+    : '<div class="small">Ranking vazio.</div>';
 }
 export const hideInvite = () => { el('invitePopup').hidden = true; state.invite = null; };
 
@@ -247,7 +257,11 @@ export function setupHandlers(net) {
   el('eqArmor').onclick = () => net.unequip('armor');
 
   el('inviteAccept').onclick = () => {
-    if (state.invite?.kind === 'guild') net.guild('acceptInvite'); else net.party('accept');
+    const k = state.invite?.kind;
+    if (k === 'guild') net.guild('acceptInvite');
+    else if (k === 'duel') net.duel('accept');
+    else if (k === 'marry') net.marry('accept');
+    else net.party('accept');
     hideInvite();
   };
   el('inviteDecline').onclick = hideInvite;

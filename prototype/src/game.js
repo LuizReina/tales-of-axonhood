@@ -6,7 +6,7 @@ import { WORLD, PLAYER_SPAWN, MOB_SPAWNS, ARENA, TOWN, moveResolved, cellOf } fr
 import { ITEMS, MOBS, SHOP, QUESTS, PETS, MOUNTS } from './data.js';
 import { deriveStats, addXp, xpForNext, unlockedSkills, maybeAdvance } from './progression.js';
 import { addItem, consumeSlot, hasSpace } from './inventory.js';
-import { loadCharacter, saveCharacter, guildStore, flush } from './persistence.js';
+import { loadCharacter, saveCharacter, guildStore, leaderboardStore, markLeaderDirty, flush } from './persistence.js';
 import * as social from './social.js';
 import * as quests from './quests.js';
 
@@ -15,6 +15,7 @@ const CHECKIN_REWARD = { gold: 50, item: 'potion_small' };
 const players = new Map(); // serverId -> player
 const mobs = new Map();    // mobId -> mob
 const ground = new Map();  // groundId -> { id, x, y, item, qty, expireAt }
+const pendingReq = new Map(); // inviteeServerId -> { kind:'duel'|'marry', fromId } (convites de duelo/casamento)
 let nextId = 1, nextMobId = 1, nextGroundId = 1;
 let saveAcc = 0;
 
@@ -52,6 +53,7 @@ function recompute(p) {
   Object.assign(p, s);
   const pet = p.pet && PETS[p.pet]; // bônus passivo do pet ativo
   if (pet) { p.atk += pet.bonus.atk || 0; p.def += pet.bonus.def || 0; p.maxHp += pet.bonus.hp || 0; }
+  if (p.spouse) p.maxHp = Math.floor(p.maxHp * 1.05); // bônus de casamento (+5% HP)
   p.color = CLASSES[p.cls].color;
   if (p.hp > p.maxHp) p.hp = p.maxHp;
 }
@@ -64,6 +66,7 @@ function buildSelf(p) {
     attackRange: p.attackRange, attackKind: p.attackKind,
     inventory: p.inventory, equipment: p.equipment, skills: unlockedSkills(p),
     refine: p.refine, pets: p.pets, pet: p.pet, mounts: p.mounts, mount: p.mount, mounted: p.mounted,
+    spouseName: p.spouseName, inDuel: !!p.duel,
     guildName: p.guildName, partyId: p.partyId || null,
   };
 }
@@ -72,6 +75,7 @@ const sendYou = (p) => send(p, {
   level: p.level, atk: p.atk, def: p.def, gold: p.gold,
   cls: p.cls, className: CLASSES[p.cls].name, color: p.color, skills: unlockedSkills(p),
   refine: p.refine, pets: p.pets, pet: p.pet, mounts: p.mounts, mount: p.mount, mounted: p.mounted,
+  spouseName: p.spouseName, inDuel: !!p.duel,
 });
 const sendInv = (p) => send(p, { t: 'inv', inventory: p.inventory, equipment: p.equipment });
 const sys = (p, text) => send(p, { t: 'sys', text });
@@ -87,6 +91,7 @@ export function handleConnection(ws) {
   });
   ws.on('close', () => {
     if (!player) return;
+    if (player.duel) endDuelFor(player); // sai do duelo, oponente vence por W.O.
     persist(player);
     const r = social.leaveParty(player);
     if (r) notifyParty(r.members);
@@ -113,6 +118,7 @@ function spawnPlayer(ws, id, hello) {
     refine: saved?.refine ?? {},
     pets: saved?.pets ?? [], pet: saved?.pet ?? null,
     mounts: saved?.mounts ?? [], mount: saved?.mount ?? null, mounted: false,
+    spouse: saved?.spouse ?? null, spouseName: saved?.spouseName ?? null, duel: null,
     quests: quests.initQuests(saved?.quests), lastCheckin: saved?.lastCheckin ?? null,
     guildName: saved?.guildName ?? null, partyId: null,
     targetType: null, targetId: null, atkCd: 0, teleCd: 0, skillCd: {}, dead: false, respawnAt: 0,
@@ -148,8 +154,11 @@ function persist(p) {
     name: p.name, cls: p.cls, level: p.level, xp: p.xp, gold: p.gold, x: p.x, y: p.y,
     inventory: p.inventory, equipment: p.equipment, refine: p.refine, guildName: p.guildName,
     pets: p.pets, pet: p.pet, mounts: p.mounts, mount: p.mount,
+    spouse: p.spouse, spouseName: p.spouseName,
     quests: p.quests, lastCheckin: p.lastCheckin,
   });
+  leaderboardStore[p.playerId] = { name: p.name, level: p.level, power: p.atk + p.def + p.maxHp };
+  markLeaderDirty();
 }
 
 // ---------- roteamento de mensagens ----------
@@ -173,6 +182,15 @@ function route(p, m) {
       else if (m.action === 'sell') shopSell(p, m.index);
       break;
     case 'refine': refineEquip(p, m.slot); break;
+    case 'duel':
+      if (m.action === 'challenge') duelChallenge(p, m.id);
+      else if (m.action === 'accept') duelAccept(p);
+      break;
+    case 'marry':
+      if (m.action === 'propose') marryPropose(p, m.id);
+      else if (m.action === 'accept') marryAccept(p);
+      break;
+    case 'rank': sendRank(p); break;
     case 'pet':
       if (m.action === 'buy') petBuy(p, m.id);
       else if (m.action === 'activate') petActivate(p, m.id);
@@ -294,6 +312,75 @@ function mountUse(p, id) {
   if (p.mount === id && p.mounted) { p.mounted = false; sys(p, 'Desmontou.'); }
   else { p.mount = id; p.mounted = true; sys(p, `Montou em ${MOUNTS[id].name}.`); }
   sendYou(p);
+}
+
+// ---- Duelo PvP ----
+function duelChallenge(p, id) {
+  const t = players.get(id);
+  if (!t || t.id === p.id) return;
+  if (p.duel) return sys(p, 'Você já está em duelo.');
+  if (t.duel) return sys(p, 'Esse jogador já está em duelo.');
+  pendingReq.set(t.id, { kind: 'duel', fromId: p.id });
+  send(t, { t: 'invite', kind: 'duel', from: p.name, fromId: p.id });
+  sys(p, `Desafiou ${t.name} para um duelo.`);
+}
+function duelAccept(p) {
+  const req = pendingReq.get(p.id);
+  if (!req || req.kind !== 'duel') return sys(p, 'Nenhum desafio pendente.');
+  pendingReq.delete(p.id);
+  const a = players.get(req.fromId);
+  if (!a || a.duel || p.duel) return;
+  a.duel = { opp: p.id }; p.duel = { opp: a.id };
+  a.hp = a.maxHp; p.hp = p.maxHp;
+  a.targetType = 'player'; a.targetId = p.id;
+  p.targetType = 'player'; p.targetId = a.id;
+  send(a, { t: 'duel', state: 'start', opp: p.name }); sendYou(a);
+  send(p, { t: 'duel', state: 'start', opp: a.name }); sendYou(p);
+}
+function endDuel(winner, loser) {
+  for (const x of [winner, loser]) { x.duel = null; x.hp = x.maxHp; if (x.targetType === 'player') { x.targetType = null; x.targetId = null; } }
+  send(winner, { t: 'duel', state: 'end', result: 'win', opp: loser.name }); sendYou(winner);
+  send(loser, { t: 'duel', state: 'end', result: 'lose', opp: winner.name }); sendYou(loser);
+  sys(winner, `🏆 Você venceu o duelo contra ${loser.name}!`);
+  sys(loser, `Você perdeu o duelo para ${winner.name}.`);
+}
+function endDuelFor(p) {
+  const opp = p.duel && players.get(p.duel.opp);
+  p.duel = null; p.hp = p.maxHp; if (p.targetType === 'player') { p.targetType = null; p.targetId = null; }
+  if (opp && opp.duel && opp.duel.opp === p.id) {
+    opp.duel = null; opp.hp = opp.maxHp; if (opp.targetType === 'player') { opp.targetType = null; opp.targetId = null; }
+    send(opp, { t: 'duel', state: 'end', result: 'win', opp: p.name }); sendYou(opp);
+    sys(opp, `${p.name} desistiu — você venceu!`);
+  }
+}
+
+// ---- Casamento ----
+function marryPropose(p, id) {
+  const t = players.get(id);
+  if (!t || t.id === p.id) return;
+  if (p.spouse) return sys(p, 'Você já é casado(a).');
+  if (t.spouse) return sys(p, 'Esse jogador já é casado(a).');
+  pendingReq.set(t.id, { kind: 'marry', fromId: p.id });
+  send(t, { t: 'invite', kind: 'marry', from: p.name, fromId: p.id });
+  sys(p, `💍 Você pediu ${t.name} em casamento.`);
+}
+function marryAccept(p) {
+  const req = pendingReq.get(p.id);
+  if (!req || req.kind !== 'marry') return sys(p, 'Nenhum pedido pendente.');
+  pendingReq.delete(p.id);
+  const a = players.get(req.fromId);
+  if (!a || a.spouse || p.spouse) return;
+  a.spouse = p.playerId; a.spouseName = p.name;
+  p.spouse = a.playerId; p.spouseName = a.name;
+  recompute(a); recompute(p); persist(a); persist(p);
+  for (const x of [a, p]) { sendYou(x); sys(x, '💖 Vocês se casaram! (+5% de HP)'); }
+}
+
+// ---- Ranking ----
+function sendRank(p) {
+  leaderboardStore[p.playerId] = { name: p.name, level: p.level, power: p.atk + p.def + p.maxHp };
+  const list = Object.values(leaderboardStore).sort((x, y) => y.power - x.power).slice(0, 10);
+  send(p, { t: 'rank', list });
 }
 
 function useSkill(p, skillId) {
@@ -612,6 +699,21 @@ export function step(dt) {
       mob.lastAttacker = p.id;
       emitHit(p.x, p.y, mob.x, mob.y, dmg, p.attackKind, mob.hp <= 0);
       if (mob.hp <= 0) killMob(mob, p);
+    }
+  }
+
+  // 3b) duelos PvP: troca de golpes até alguém chegar a 1 de HP (ninguém morre)
+  for (const p of players.values()) {
+    if (p.dead || !p.duel) continue;
+    const opp = players.get(p.duel.opp);
+    if (!opp || !opp.duel || opp.duel.opp !== p.id) { endDuelFor(p); continue; }
+    if (dist(p, opp) <= p.attackRange + PLAYER.radius && p.atkCd <= 0) {
+      p.atkCd = p.attackCooldown;
+      const dmg = Math.max(1, p.atk - opp.def);
+      opp.hp -= dmg;
+      emitHit(p.x, p.y, opp.x, opp.y, dmg, p.attackKind, opp.hp <= 1);
+      sendYou(opp);
+      if (opp.hp <= 1) endDuel(p, opp);
     }
   }
 

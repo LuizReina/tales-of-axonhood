@@ -6,7 +6,7 @@ import { setupInput } from './input.js';
 import { startRender } from './render.js';
 import * as ui from './ui.js';
 
-export const VERSION = 'v0.5.0';
+export const VERSION = 'v0.6.0';
 const el = (id) => document.getElementById(id);
 const canvas = el('game');
 if (el('version')) el('version').textContent = `Tales of Axonhood ${VERSION}`;
@@ -101,6 +101,11 @@ function wire(net) {
 
   net.on('quests', (m) => { state.quests = { main: m.main, dailies: m.dailies }; ui.renderQuests(); });
   net.on('checkin', (m) => ui.showCheckin(m));
+  net.on('rank', (m) => { state.rank = m.list; ui.renderRank(); });
+  net.on('duel', (m) => {
+    if (m.state === 'start') ui.pushChat('sys', `⚔️ Duelo contra ${esc(m.opp)} começou!`);
+    else ui.pushChat('sys', m.result === 'win' ? `🏆 Você venceu o duelo!` : `Você perdeu o duelo para ${esc(m.opp)}.`);
+  });
 
   net.on('sys', (m) => ui.pushChat('sys', esc(m.text)));
   net.on('chat', (m) => ui.pushChat(m.channel, `<b>${esc(m.from)}</b>: ${esc(m.text)}`));

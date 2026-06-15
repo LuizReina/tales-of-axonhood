@@ -1,7 +1,7 @@
 // Entrada do jogador: teclado (movimento + atalhos) e mouse (selecionar alvo).
 // >>> FRONTEIRA DE MIGRAÇÃO <<< No Unity isto vira o Input System + raycast de clique.
 import { state, castSkill } from './state.js';
-import { toggleInventory, toggleGuild, toggleQuests, openShop, openSmith, openTamer } from './ui.js';
+import { toggleInventory, toggleGuild, toggleQuests, openShop, openSmith, openTamer, openRank } from './ui.js';
 
 const MOVE = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right' };
 
@@ -21,6 +21,9 @@ export function setupInput(net, canvas) {
       case 'KeyL': net.party('leave'); break;
       case 'KeyQ': useFirstPotion(net); break;
       case 'KeyH': net.mount('toggle'); break;
+      case 'KeyK': openRank(); break;
+      case 'KeyT': if (state.selectedPlayerId) net.duel('challenge', state.selectedPlayerId); break;
+      case 'KeyM': if (state.selectedPlayerId) net.marry('propose', state.selectedPlayerId); break;
       case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': {
         const idx = Number(e.code.slice(5)) - 1;
         const sk = state.self && state.self.skills && state.self.skills[idx];

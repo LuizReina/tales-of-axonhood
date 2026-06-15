@@ -39,4 +39,7 @@ export class Net {
   refine(slot) { this.send({ t: 'refine', slot }); }
   pet(action, id) { this.send({ t: 'pet', action, id }); }
   mount(action, id) { this.send({ t: 'mount', action, id }); }
+  duel(action, id) { this.send({ t: 'duel', action, id }); }
+  marry(action, id) { this.send({ t: 'marry', action, id }); }
+  rank() { this.send({ t: 'rank' }); }
 }

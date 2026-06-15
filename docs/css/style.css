@@ -115,6 +115,11 @@ canvas { display: block; margin: 0 auto; background: #20242e; }
 .shopItem button { padding: 3px 8px; border: none; border-radius: 5px; background: #4ea1ff; color: #08111d; font-weight: 600; cursor: pointer; }
 .shopItem .price { color: #ffd479; }
 
+#rankPanel { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 280px; max-height: 60vh; overflow-y: auto; }
+.rankRow { display: flex; justify-content: space-between; padding: 4px 6px; border-bottom: 1px solid #2a3142; font-size: 13px; }
+.rankRow .pos { color: #ffd479; font-weight: 700; width: 24px; }
+.rankRow .pw { color: #8ee6a5; }
+
 #smithPanel, #tamerPanel { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 360px; max-height: 70vh; overflow-y: auto; }
 .tamerHd { color: #ffd479; font-size: 12px; margin: 8px 0 6px; }
 

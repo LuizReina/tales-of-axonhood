@@ -9,6 +9,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const DIR = join(here, '..', 'save');
 const CHAR_FILE = join(DIR, 'characters.json');
 const GUILD_FILE = join(DIR, 'guilds.json');
+const LEADER_FILE = join(DIR, 'leaderboard.json');
 
 if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true });
 
@@ -20,8 +21,9 @@ function readJson(file, fallback) {
 // Carregadas uma vez para a memória; escritas de volta com debounce.
 const characters = readJson(CHAR_FILE, {}); // playerId -> dados persistidos
 const guilds = readJson(GUILD_FILE, {});     // nome -> { name, owner, members[] }
+const leaderboard = readJson(LEADER_FILE, {}); // playerId -> { name, level, power }
 
-let charDirty = false, guildDirty = false;
+let charDirty = false, guildDirty = false, leaderDirty = false;
 
 export function loadCharacter(playerId) { return characters[playerId] || null; }
 export function saveCharacter(playerId, data) { characters[playerId] = data; charDirty = true; }
@@ -29,10 +31,14 @@ export function saveCharacter(playerId, data) { characters[playerId] = data; cha
 export const guildStore = guilds;
 export function markGuildsDirty() { guildDirty = true; }
 
+export const leaderboardStore = leaderboard;
+export function markLeaderDirty() { leaderDirty = true; }
+
 // Chamado periodicamente pelo loop; escreve só o que mudou.
 export function flush() {
-  if (!charDirty && !guildDirty) return;
+  if (!charDirty && !guildDirty && !leaderDirty) return;
   if (!existsSync(DIR)) mkdirSync(DIR, { recursive: true }); // recria a pasta se ela sumir em runtime
   if (charDirty) { writeFileSync(CHAR_FILE, JSON.stringify(characters)); charDirty = false; }
   if (guildDirty) { writeFileSync(GUILD_FILE, JSON.stringify(guilds, null, 2)); guildDirty = false; }
+  if (leaderDirty) { writeFileSync(LEADER_FILE, JSON.stringify(leaderboard)); leaderDirty = false; }
 }

@@ -26,6 +26,7 @@ export const state = {
   shop: null,             // { buy, sell } tabela da loja (vem no init)
   petCatalog: null,       // catálogo de pets (vem no init)
   mountCatalog: null,     // catálogo de montarias (vem no init)
+  rank: null,             // lista do ranking (resposta de 'rank')
 
   dead: false,
   respawnAt: 0,
