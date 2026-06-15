@@ -28,6 +28,7 @@ export class Net {
   input(keys) { this.send({ t: 'input', ...keys }); }
   target(kind, id) { this.send({ t: 'target', kind, id }); }
   untarget() { this.send({ t: 'untarget' }); }
+  skill(id) { this.send({ t: 'skill', id }); }
   useSlot(index) { this.send({ t: 'useSlot', index }); }
   unequip(slot) { this.send({ t: 'unequip', slot }); }
   party(action, id) { this.send({ t: 'party', action, id }); }

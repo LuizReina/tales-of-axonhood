@@ -1,19 +1,45 @@
 // HUD em DOM: lê o `state` e pinta painéis (vida, xp, alvo, grupo, guilda, inventário, chat).
 // >>> FRONTEIRA DE MIGRAÇÃO <<< Vira UI Toolkit/uGUI no Unity. Nenhuma regra de jogo aqui.
-import { state } from './state.js';
+import { state, castSkill } from './state.js';
 
 const el = (id) => document.getElementById(id);
 
 export function renderSelf() {
   const s = state.self; if (!s) return;
   el('selfName').textContent = s.name;
-  el('selfCls').textContent = s.cls === 'mage' ? 'Mago' : 'Guerreiro';
+  el('selfCls').textContent = s.className || (s.cls === 'mage' ? 'Mago' : 'Guerreiro');
   el('selfLvl').textContent = s.level;
   el('selfAtk').textContent = s.atk;
   el('selfDef').textContent = s.def;
+  el('selfGold').textContent = s.gold ?? 0;
   el('selfGuild').textContent = s.guildName ? `🛡 ${s.guildName}` : 'sem guilda';
   bar('hpFill', 'hpTxt', s.hp, s.maxHp, `${s.hp}/${s.maxHp}`);
   bar('xpFill', 'xpTxt', s.xp, s.xpNext, `XP ${s.xp}/${s.xpNext}`);
+}
+
+// Hotbar de skills (1..N). Cooldown é mostrado a partir de um carimbo local ao usar.
+export function renderSkills() {
+  const bar = el('hotbar');
+  const skills = (state.self && state.self.skills) || [];
+  bar.innerHTML = '';
+  skills.forEach((sk, i) => {
+    const d = document.createElement('div');
+    d.className = 'skill'; d.dataset.id = sk.id; d.title = `${sk.name} (recarga ${sk.cooldown}s)`;
+    d.innerHTML = `<span class="key">${i + 1}</span><span class="nm">${sk.name}</span><span class="cd"></span>`;
+    d.onclick = () => castSkill(sk.id);
+    bar.appendChild(d);
+  });
+}
+
+// Atualiza visual de cooldown a cada frame (chamado pelo render loop).
+export function tickSkillCooldowns() {
+  const now = performance.now();
+  for (const d of el('hotbar').children) {
+    const end = state.skillCd[d.dataset.id] || 0;
+    const left = (end - now) / 1000;
+    if (left > 0) { d.classList.add('cooling'); d.querySelector('.cd').textContent = left.toFixed(1); }
+    else d.classList.remove('cooling');
+  }
 }
 
 export function renderTarget() {

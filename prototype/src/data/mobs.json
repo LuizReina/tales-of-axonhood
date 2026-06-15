@@ -1,6 +1,6 @@
 {
   "slime": {
-    "name": "Slime", "hp": 30, "atk": 4, "def": 0, "xp": 12,
+    "name": "Slime", "hp": 30, "atk": 4, "def": 0, "xp": 20, "gold": [3, 9],
     "speed": 55, "aggroRange": 170, "attackRange": 34, "attackCooldown": 1.2,
     "radius": 15, "color": "#7bd88f", "respawn": 6,
     "loot": [
@@ -10,7 +10,7 @@
     ]
   },
   "wolf": {
-    "name": "Lobo", "hp": 68, "atk": 9, "def": 2, "xp": 28,
+    "name": "Lobo", "hp": 68, "atk": 9, "def": 2, "xp": 45, "gold": [12, 25],
     "speed": 120, "aggroRange": 250, "attackRange": 38, "attackCooldown": 1.0,
     "radius": 17, "color": "#c98aa6", "respawn": 10,
     "loot": [

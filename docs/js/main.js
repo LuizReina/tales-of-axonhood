@@ -6,7 +6,7 @@ import { setupInput } from './input.js';
 import { startRender } from './render.js';
 import * as ui from './ui.js';
 
-export const VERSION = 'v0.2.0';
+export const VERSION = 'v0.3.0';
 const el = (id) => document.getElementById(id);
 const canvas = el('game');
 if (el('version')) el('version').textContent = `Tales of Axonhood ${VERSION}`;
@@ -68,7 +68,7 @@ function wire(net) {
     state.myId = m.id; state.world = m.world; state.cellSize = m.cellSize; state.aoiRadius = m.aoiRadius;
     state.items = m.items; state.self = m.self;
     el('login').hidden = true; el('hud').hidden = false;
-    ui.renderSelf(); ui.renderInventory();
+    ui.renderSelf(); ui.renderInventory(); ui.renderSkills();
     if (!started) {
       started = true;
       ui.setupHandlers(net);
@@ -81,8 +81,13 @@ function wire(net) {
   net.on('state', (m) => { applyState(m); ui.renderTarget(); });
 
   net.on('you', (m) => {
-    Object.assign(state.self, { hp: m.hp, maxHp: m.maxHp, xp: m.xp, xpNext: m.xpNext, level: m.level, atk: m.atk, def: m.def });
+    const skillsChanged = JSON.stringify(m.skills) !== JSON.stringify(state.self.skills);
+    Object.assign(state.self, {
+      hp: m.hp, maxHp: m.maxHp, xp: m.xp, xpNext: m.xpNext, level: m.level, atk: m.atk, def: m.def,
+      gold: m.gold, cls: m.cls, className: m.className, color: m.color, skills: m.skills,
+    });
     ui.renderSelf();
+    if (skillsChanged) ui.renderSkills(); // nível/evolução pode ter liberado skills novas
   });
 
   net.on('inv', (m) => {

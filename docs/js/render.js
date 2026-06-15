@@ -2,6 +2,7 @@
 // efeitos de combate. >>> FRONTEIRA DE MIGRAÇÃO <<< Tudo aqui é específico de Canvas/HTML e
 // será substituído por cenas/prefabs/Sprites no Unity. A LÓGICA não vive aqui — só a pintura.
 import { state } from './state.js';
+import { tickSkillCooldowns } from './ui.js';
 
 const HIT_LIFETIME = 700;
 
@@ -90,6 +91,7 @@ export function startRender(canvas) {
     }
 
     drawFog(ctx, W, H, sx, sy);
+    tickSkillCooldowns();
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);

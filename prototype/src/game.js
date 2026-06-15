@@ -1,10 +1,10 @@
 // Núcleo autoritativo do jogo: mantém o estado verdadeiro, roteia as mensagens dos clientes
 // e roda o tick com todos os sistemas (movimento, IA, combate, loot, progressão, AOI).
 // O cliente (web hoje, Unity depois) só manda intenção e desenha o que recebe daqui.
-import { PLAYER, CELL_SIZE, AOI_RADIUS, CLASSES, DEFAULT_CLASS, SAVE_INTERVAL } from './config.js';
+import { PLAYER, CELL_SIZE, AOI_RADIUS, CLASSES, STARTER_CLASSES, DEFAULT_CLASS, SAVE_INTERVAL } from './config.js';
 import { WORLD, PLAYER_SPAWN, MOB_SPAWNS, ARENA, moveResolved, cellOf } from './world.js';
 import { ITEMS, MOBS } from './data.js';
-import { deriveStats, addXp, xpForNext } from './progression.js';
+import { deriveStats, addXp, xpForNext, unlockedSkills, maybeAdvance } from './progression.js';
 import { addItem, consumeSlot, hasSpace } from './inventory.js';
 import { loadCharacter, saveCharacter, guildStore, flush } from './persistence.js';
 import * as social from './social.js';
@@ -46,22 +46,24 @@ export function initMobs() {
 function recompute(p) {
   const s = deriveStats(p);
   Object.assign(p, s);
+  p.color = CLASSES[p.cls].color;
   if (p.hp > p.maxHp) p.hp = p.maxHp;
 }
 
 function buildSelf(p) {
   return {
-    id: p.id, name: p.name, cls: p.cls, color: p.color,
-    level: p.level, xp: p.xp, xpNext: xpForNext(p.level),
+    id: p.id, name: p.name, cls: p.cls, className: CLASSES[p.cls].name, color: p.color,
+    level: p.level, xp: p.xp, xpNext: xpForNext(p.level), gold: p.gold,
     hp: p.hp, maxHp: p.maxHp, atk: p.atk, def: p.def,
     attackRange: p.attackRange, attackKind: p.attackKind,
-    inventory: p.inventory, equipment: p.equipment,
+    inventory: p.inventory, equipment: p.equipment, skills: unlockedSkills(p),
     guildName: p.guildName, partyId: p.partyId || null,
   };
 }
 const sendYou = (p) => send(p, {
   t: 'you', hp: p.hp, maxHp: p.maxHp, xp: p.xp, xpNext: xpForNext(p.level),
-  level: p.level, atk: p.atk, def: p.def,
+  level: p.level, atk: p.atk, def: p.def, gold: p.gold,
+  cls: p.cls, className: CLASSES[p.cls].name, color: p.color, skills: unlockedSkills(p),
 });
 const sendInv = (p) => send(p, { t: 'inv', inventory: p.inventory, equipment: p.equipment });
 const sys = (p, text) => send(p, { t: 'sys', text });
@@ -88,19 +90,21 @@ export function handleConnection(ws) {
 function spawnPlayer(ws, id, hello) {
   const playerId = String(hello.playerId || `anon-${id}`);
   const saved = loadCharacter(playerId);
+  // classe salva pode ser qualquer uma (já evoluída); novo personagem só começa nas iniciais.
   const cls = (saved?.cls && CLASSES[saved.cls]) ? saved.cls
-    : (CLASSES[hello.cls] ? hello.cls : DEFAULT_CLASS);
+    : (STARTER_CLASSES.includes(hello.cls) ? hello.cls : DEFAULT_CLASS);
   const name = (saved?.name || hello.name || `Herói${id}`).toString().slice(0, 16);
 
   const p = {
     ws, id, playerId, name, cls,
     x: saved?.x ?? PLAYER_SPAWN.x, y: saved?.y ?? PLAYER_SPAWN.y,
     input: { up: false, down: false, left: false, right: false },
-    level: saved?.level ?? 1, xp: saved?.xp ?? 0,
+    level: saved?.level ?? 1, xp: saved?.xp ?? 0, gold: saved?.gold ?? 0,
     inventory: saved?.inventory ?? [{ item: 'potion_small', qty: 3 }],
     equipment: saved?.equipment ?? { weapon: cls === 'mage' ? 'staff_oak' : 'sword_short', armor: null },
+    refine: saved?.refine ?? {},
     guildName: saved?.guildName ?? null, partyId: null,
-    targetType: null, targetId: null, atkCd: 0, teleCd: 0, dead: false, respawnAt: 0,
+    targetType: null, targetId: null, atkCd: 0, teleCd: 0, skillCd: {}, dead: false, respawnAt: 0,
     color: CLASSES[cls].color, hp: 1,
   };
   recompute(p);
@@ -116,8 +120,8 @@ function spawnPlayer(ws, id, hello) {
 
 function persist(p) {
   saveCharacter(p.playerId, {
-    name: p.name, cls: p.cls, level: p.level, xp: p.xp, x: p.x, y: p.y,
-    inventory: p.inventory, equipment: p.equipment, guildName: p.guildName,
+    name: p.name, cls: p.cls, level: p.level, xp: p.xp, gold: p.gold, x: p.x, y: p.y,
+    inventory: p.inventory, equipment: p.equipment, refine: p.refine, guildName: p.guildName,
   });
 }
 
@@ -132,11 +136,49 @@ function route(p, m) {
       else if (m.kind === 'player' && players.has(m.id)) { p.targetType = 'player'; p.targetId = m.id; }
       break;
     case 'untarget': p.targetType = null; p.targetId = null; break;
+    case 'skill': useSkill(p, m.id); break;
     case 'useSlot': useSlot(p, m.index); break;
     case 'unequip': unequip(p, m.slot); break;
     case 'party': handleParty(p, m); break;
     case 'guild': handleGuild(p, m); break;
     case 'chat': handleChat(p, m); break;
+  }
+}
+
+function useSkill(p, skillId) {
+  if (p.dead) return;
+  const skill = unlockedSkills(p).find((s) => s.id === skillId);
+  if (!skill || (p.skillCd[skillId] || 0) > 0) return;
+  const power = (mob) => Math.max(1, Math.floor(p.atk * skill.power) - mob.def.def);
+
+  if (skill.kind === 'single') {
+    if (p.targetType !== 'mob') return sys(p, 'Selecione um alvo.');
+    const mob = mobs.get(p.targetId);
+    if (!mob || mob.dead) return;
+    if (dist(p, mob) > skill.range + mob.def.radius) return sys(p, 'Alvo fora de alcance.');
+    p.skillCd[skillId] = skill.cooldown;
+    const dmg = power(mob);
+    mob.hp -= dmg; mob.lastAttacker = p.id;
+    emitHit(p.x, p.y, mob.x, mob.y, dmg, p.attackKind, mob.hp <= 0);
+    if (mob.hp <= 0) killMob(mob, p);
+  } else { // aoe: centro no alvo (se houver/no alcance) ou no próprio player (skills de raio 0)
+    let cx = p.x, cy = p.y;
+    if (skill.range > 0) {
+      if (p.targetType !== 'mob') return sys(p, 'Selecione um alvo.');
+      const t = mobs.get(p.targetId);
+      if (!t || t.dead || dist(p, t) > skill.range + t.def.radius) return sys(p, 'Alvo fora de alcance.');
+      cx = t.x; cy = t.y;
+    }
+    p.skillCd[skillId] = skill.cooldown;
+    for (const mob of mobs.values()) {
+      if (mob.dead) continue;
+      if (Math.hypot(mob.x - cx, mob.y - cy) <= skill.radius + mob.def.radius) {
+        const dmg = power(mob);
+        mob.hp -= dmg; mob.lastAttacker = p.id;
+        emitHit(p.x, p.y, mob.x, mob.y, dmg, 'aoe', mob.hp <= 0);
+        if (mob.hp <= 0) killMob(mob, p);
+      }
+    }
   }
 }
 
@@ -277,22 +319,32 @@ function killMob(mob, killer) {
   }
   // limpa quem mirava nesse mob
   for (const p of players.values()) if (p.targetType === 'mob' && p.targetId === mob.id) { p.targetType = null; p.targetId = null; }
-  if (killer) grantXp(killer, mob);
+  if (killer) grantRewards(killer, mob);
 }
 
-function grantXp(killer, mob) {
+function grantRewards(killer, mob) {
   const party = social.partyOf(killer);
   let recipients = [killer];
   if (party) {
-    // XP dividido IGUALMENTE entre todos os membros do grupo (ex.: 20 de XP, grupo de 2 = 10 cada).
+    // XP e ouro divididos IGUALMENTE entre todos os membros do grupo.
     recipients = [...party.members].map((id) => players.get(id)).filter(Boolean);
     if (recipients.length === 0) recipients = [killer];
   }
-  const share = Math.max(1, Math.floor(mob.def.xp / recipients.length));
+  const xpShare = Math.max(1, Math.floor(mob.def.xp / recipients.length));
+  const [gMin, gMax] = mob.def.gold || [0, 0];
+  const goldTotal = gMin + Math.floor(Math.random() * (gMax - gMin + 1));
+  const goldShare = Math.floor(goldTotal / recipients.length);
+
   for (const p of recipients) {
-    const leveled = addXp(p, share);
-    if (leveled) { recompute(p); p.hp = p.maxHp; sys(p, `Subiu para o nível ${p.level}!`); }
-    sys(p, `+${share} XP (${mob.def.name})`);
+    if (goldShare > 0) p.gold += goldShare;
+    const leveled = addXp(p, xpShare);
+    if (leveled) {
+      recompute(p); p.hp = p.maxHp;
+      sys(p, `Subiu para o nível ${p.level}!`);
+      let adv; // pode subir mais de um tier se ganhou muitos níveis de uma vez
+      while ((adv = maybeAdvance(p))) { recompute(p); p.hp = p.maxHp; sys(p, `★ Evoluiu: ${adv.from} → ${adv.to}!`); }
+    }
+    sys(p, `+${xpShare} XP${goldShare > 0 ? ` · +${goldShare} ouro` : ''} (${mob.def.name})`);
     sendYou(p);
   }
 }
@@ -318,6 +370,7 @@ export function step(dt) {
       p.x = r.x; p.y = r.y;
     }
     if (p.atkCd > 0) p.atkCd -= dt;
+    for (const k in p.skillCd) if (p.skillCd[k] > 0) p.skillCd[k] -= dt;
     // portais: encostar teleporta (com cooldown para não repetir ao chegar)
     if (p.teleCd > 0) p.teleCd -= dt;
     else for (const portal of WORLD.portals) {

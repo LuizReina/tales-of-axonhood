@@ -95,3 +95,13 @@ canvas { display: block; margin: 0 auto; background: #20242e; }
 
 #hints { bottom: 12px; left: 50%; transform: translateX(-50%); color: #9aa2b1; font-size: 11px; }
 #hints b { color: #cdd3df; }
+
+#hotbar { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+.skill { width: 56px; height: 56px; border-radius: 10px; background: #1b1f29ee; border: 1px solid #39414f;
+  cursor: pointer; position: relative; overflow: hidden; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; padding: 2px; }
+.skill .key { position: absolute; top: 2px; left: 4px; font-size: 10px; color: #ffd479; font-weight: 700; }
+.skill .nm { font-size: 9px; color: #cdd3df; line-height: 1.1; margin-top: 8px; }
+.skill .cd { position: absolute; inset: 0; background: #000a; color: #fff; display: none;
+  align-items: center; justify-content: center; font-size: 16px; font-weight: 700; }
+.skill.cooling .cd { display: flex; }

@@ -26,7 +26,18 @@ export const state = {
   dead: false,
   respawnAt: 0,
   camera: { x: 0, y: 0 },
+  skillCd: {},            // id da skill -> timestamp (performance.now) em que a recarga termina
+  _net: null,             // referência ao Net (preenchida em setupHandlers)
 };
+
+// Usa uma skill: respeita a recarga local, envia ao servidor e carimba o cooldown.
+export function castSkill(id) {
+  const sk = state.self && state.self.skills && state.self.skills.find((s) => s.id === id);
+  if (!sk || !state._net) return;
+  if ((state.skillCd[id] || 0) > performance.now()) return;
+  state._net.skill(id);
+  state.skillCd[id] = performance.now() + sk.cooldown * 1000;
+}
 
 // Aplica um snapshot 'state' do servidor às estruturas locais, suavizando posições.
 export function applyState(m) {
