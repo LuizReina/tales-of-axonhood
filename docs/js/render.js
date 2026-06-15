@@ -23,6 +23,16 @@ export function startRender(canvas) {
     // chão
     ctx.fillStyle = '#252a35';
     ctx.fillRect(sx(0), sy(0), state.world.width, state.world.height);
+    // cidade inicial (área segura)
+    if (state.world.town) {
+      const t = state.world.town;
+      ctx.fillStyle = '#2c3a2e';
+      ctx.fillRect(sx(t.x), sy(t.y), t.w, t.h);
+      ctx.strokeStyle = '#6e8f6e'; ctx.lineWidth = 2;
+      ctx.strokeRect(sx(t.x), sy(t.y), t.w, t.h); ctx.lineWidth = 1;
+      ctx.fillStyle = '#9fd29f'; ctx.font = 'bold 13px system-ui'; ctx.textAlign = 'left';
+      ctx.fillText('🏰 Cidade Inicial — área segura', sx(t.x) + 10, sy(t.y) + 20);
+    }
     // grade de células de AOI
     ctx.strokeStyle = '#ffffff10';
     for (let x = 0; x <= state.world.width; x += state.cellSize) line(ctx, sx(x), sy(0), sx(x), sy(state.world.height));
@@ -40,6 +50,18 @@ export function startRender(canvas) {
       ctx.strokeStyle = portal.color || '#c77dff'; ctx.lineWidth = 2; ctx.stroke(); ctx.lineWidth = 1;
       ctx.fillStyle = '#fff'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
       ctx.fillText(portal.label, px, py - 24);
+    }
+
+    // NPCs (losango com nome)
+    for (const npc of state.world.npcs || []) {
+      const nx = sx(npc.x), ny = sy(npc.y);
+      ctx.save();
+      ctx.translate(nx, ny); ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = npc.color || '#ffd479';
+      ctx.fillRect(-11, -11, 22, 22);
+      ctx.restore();
+      ctx.fillStyle = '#fff'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText(`${npc.type === 'shop' ? '🛒 ' : '❗ '}${npc.name} (${npc.role})`, nx, ny - 18);
     }
 
     // itens no chão

@@ -1,0 +1,12 @@
+{
+  "main": [
+    { "id": "m1", "name": "Limpando os Campos", "desc": "Derrote 5 Slimes.", "type": "kill", "target": "slime", "count": 5, "reward": { "xp": 70, "gold": 40, "item": "potion_small", "itemQty": 2 } },
+    { "id": "m2", "name": "Ameaça dos Lobos", "desc": "Derrote 3 Lobos.", "type": "kill", "target": "wolf", "count": 3, "reward": { "xp": 140, "gold": 70, "item": "tunic" } },
+    { "id": "m3", "name": "O Coletor", "desc": "Tenha 3 Gosmas no inventário.", "type": "collect", "item": "gel", "count": 3, "reward": { "xp": 120, "gold": 60 } },
+    { "id": "m4", "name": "Encare o Terror", "desc": "Visite a arena de Phanton HorseFace.", "type": "visit", "area": "arena", "count": 1, "reward": { "xp": 240, "gold": 120, "item": "staff_oak" } }
+  ],
+  "daily": [
+    { "id": "d_slime", "name": "Diária: Caça aos Slimes", "desc": "Derrote 8 Slimes.", "type": "kill", "target": "slime", "count": 8, "reward": { "xp": 180, "gold": 90 } },
+    { "id": "d_wolf", "name": "Diária: Matilha", "desc": "Derrote 5 Lobos.", "type": "kill", "target": "wolf", "count": 5, "reward": { "xp": 260, "gold": 140 } }
+  ]
+}

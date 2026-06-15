@@ -6,7 +6,7 @@ import { setupInput } from './input.js';
 import { startRender } from './render.js';
 import * as ui from './ui.js';
 
-export const VERSION = 'v0.3.0';
+export const VERSION = 'v0.4.0';
 const el = (id) => document.getElementById(id);
 const canvas = el('game');
 if (el('version')) el('version').textContent = `Tales of Axonhood ${VERSION}`;
@@ -66,7 +66,7 @@ function wire(net) {
   net.on('init', (m) => {
     console.log('[main] init recebido — id:', m.id);
     state.myId = m.id; state.world = m.world; state.cellSize = m.cellSize; state.aoiRadius = m.aoiRadius;
-    state.items = m.items; state.self = m.self;
+    state.items = m.items; state.self = m.self; state.shop = m.shop;
     el('login').hidden = true; el('hud').hidden = false;
     ui.renderSelf(); ui.renderInventory(); ui.renderSkills();
     if (!started) {
@@ -88,12 +88,17 @@ function wire(net) {
     });
     ui.renderSelf();
     if (skillsChanged) ui.renderSkills(); // nível/evolução pode ter liberado skills novas
+    ui.refreshShop();
   });
 
   net.on('inv', (m) => {
     state.self.inventory = m.inventory; state.self.equipment = m.equipment;
     ui.renderInventory();
+    ui.refreshShop();
   });
+
+  net.on('quests', (m) => { state.quests = { main: m.main, dailies: m.dailies }; ui.renderQuests(); });
+  net.on('checkin', (m) => ui.showCheckin(m));
 
   net.on('sys', (m) => ui.pushChat('sys', esc(m.text)));
   net.on('chat', (m) => ui.pushChat(m.channel, `<b>${esc(m.from)}</b>: ${esc(m.text)}`));

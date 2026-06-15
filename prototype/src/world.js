@@ -24,19 +24,29 @@ export const WORLD = {
   ],
 };
 
+// Cidade inicial: área SEGURA onde os players nascem e os NPCs ficam. Monstros não entram.
+export const TOWN = { x: 0, y: 0, w: 560, h: 440 };
+WORLD.town = TOWN;
+
+// NPCs estáticos: NÃO andam, NÃO atacam, NÃO têm nível. Só nome + função (entre parênteses).
+WORLD.npcs = [
+  { id: 'shop', type: 'shop', name: 'Bartô', role: 'Mercador', x: 280, y: 140, color: '#ffd479' },
+  { id: 'quest', type: 'quest', name: 'Eldra', role: 'Arauta de Missões', x: 150, y: 310, color: '#7bd88f' },
+];
+
 // Retângulo interno da arena (usado para confinar o boss aos players que estão lá dentro).
 export const ARENA = { x: 600, y: 1280, w: 400, h: 284 };
 
-// Onde o jogador nasce (longe dos mobs).
-export const PLAYER_SPAWN = { x: 140, y: 140 };
+// Onde o jogador nasce (dentro da cidade).
+export const PLAYER_SPAWN = { x: 220, y: 230 };
 
-// Mobs fixos no mundo (kind + posição de origem; respawnam no mesmo lugar).
+// Mobs fixos no mundo (todos FORA da cidade; respawnam no mesmo lugar).
 export const MOB_SPAWNS = [
-  { kind: 'slime', x: 320, y: 240 }, { kind: 'slime', x: 540, y: 520 },
-  { kind: 'slime', x: 760, y: 360 }, { kind: 'slime', x: 300, y: 700 },
-  { kind: 'slime', x: 1000, y: 300 }, { kind: 'slime', x: 700, y: 980 },
-  { kind: 'wolf', x: 1180, y: 560 }, { kind: 'wolf', x: 980, y: 980 },
-  { kind: 'wolf', x: 1360, y: 980 }, { kind: 'wolf', x: 520, y: 1040 },
+  { kind: 'slime', x: 700, y: 240 }, { kind: 'slime', x: 640, y: 470 },
+  { kind: 'slime', x: 840, y: 300 }, { kind: 'slime', x: 520, y: 580 },
+  { kind: 'slime', x: 1000, y: 560 }, { kind: 'slime', x: 360, y: 760 },
+  { kind: 'wolf', x: 1180, y: 560 }, { kind: 'wolf', x: 980, y: 1000 },
+  { kind: 'wolf', x: 1360, y: 980 }, { kind: 'wolf', x: 460, y: 1060 },
   { kind: 'horseface', x: 800, y: 1460 }, // boss, dentro da arena
 ];
 

@@ -2,12 +2,15 @@
 // e roda o tick com todos os sistemas (movimento, IA, combate, loot, progressão, AOI).
 // O cliente (web hoje, Unity depois) só manda intenção e desenha o que recebe daqui.
 import { PLAYER, CELL_SIZE, AOI_RADIUS, CLASSES, STARTER_CLASSES, DEFAULT_CLASS, SAVE_INTERVAL } from './config.js';
-import { WORLD, PLAYER_SPAWN, MOB_SPAWNS, ARENA, moveResolved, cellOf } from './world.js';
-import { ITEMS, MOBS } from './data.js';
+import { WORLD, PLAYER_SPAWN, MOB_SPAWNS, ARENA, TOWN, moveResolved, cellOf } from './world.js';
+import { ITEMS, MOBS, SHOP, QUESTS } from './data.js';
 import { deriveStats, addXp, xpForNext, unlockedSkills, maybeAdvance } from './progression.js';
 import { addItem, consumeSlot, hasSpace } from './inventory.js';
 import { loadCharacter, saveCharacter, guildStore, flush } from './persistence.js';
 import * as social from './social.js';
+import * as quests from './quests.js';
+
+const CHECKIN_REWARD = { gold: 50, item: 'potion_small' };
 
 const players = new Map(); // serverId -> player
 const mobs = new Map();    // mobId -> mob
@@ -20,6 +23,7 @@ const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const send = (p, obj) => { if (p.ws.readyState === 1) p.ws.send(JSON.stringify(obj)); };
 
 const inArena = (p) => p.x >= ARENA.x && p.x <= ARENA.x + ARENA.w && p.y >= ARENA.y && p.y <= ARENA.y + ARENA.h;
+const inTown = (e) => e.x >= TOWN.x && e.x <= TOWN.x + TOWN.w && e.y >= TOWN.y && e.y <= TOWN.y + TOWN.h;
 
 // Está "b" (ponto qualquer) dentro da AOI de "a"?
 function inAOI(a, b) {
@@ -103,25 +107,41 @@ function spawnPlayer(ws, id, hello) {
     inventory: saved?.inventory ?? [{ item: 'potion_small', qty: 3 }],
     equipment: saved?.equipment ?? { weapon: cls === 'mage' ? 'staff_oak' : 'sword_short', armor: null },
     refine: saved?.refine ?? {},
+    quests: quests.initQuests(saved?.quests), lastCheckin: saved?.lastCheckin ?? null,
     guildName: saved?.guildName ?? null, partyId: null,
     targetType: null, targetId: null, atkCd: 0, teleCd: 0, skillCd: {}, dead: false, respawnAt: 0,
     color: CLASSES[cls].color, hp: 1,
   };
+  quests.ensureDaily(p.quests);
   recompute(p);
   p.hp = p.maxHp;
   players.set(id, p);
 
   send(p, {
-    t: 'init', id, world: WORLD, cellSize: CELL_SIZE, aoiRadius: AOI_RADIUS, self: buildSelf(p), items: ITEMS,
+    t: 'init', id, world: WORLD, cellSize: CELL_SIZE, aoiRadius: AOI_RADIUS, self: buildSelf(p), items: ITEMS, shop: SHOP,
   });
   if (p.guildName) sendGuild(p);
+
+  // recompensa de login diário
+  const t = quests.today();
+  if (p.lastCheckin !== t) {
+    p.lastCheckin = t;
+    p.gold += CHECKIN_REWARD.gold;
+    addItem(p.inventory, CHECKIN_REWARD.item, 1);
+    send(p, { t: 'checkin', gold: CHECKIN_REWARD.gold, item: ITEMS[CHECKIN_REWARD.item]?.name || CHECKIN_REWARD.item });
+    sendYou(p); sendInv(p);
+  }
+  sendQuests(p);
   return p;
 }
+
+const sendQuests = (p) => send(p, { t: 'quests', ...quests.buildQuestState(p) });
 
 function persist(p) {
   saveCharacter(p.playerId, {
     name: p.name, cls: p.cls, level: p.level, xp: p.xp, gold: p.gold, x: p.x, y: p.y,
     inventory: p.inventory, equipment: p.equipment, refine: p.refine, guildName: p.guildName,
+    quests: p.quests, lastCheckin: p.lastCheckin,
   });
 }
 
@@ -137,12 +157,69 @@ function route(p, m) {
       break;
     case 'untarget': p.targetType = null; p.targetId = null; break;
     case 'skill': useSkill(p, m.id); break;
+    case 'quest':
+      if (m.action === 'claimMain') claimMain(p);
+      else if (m.action === 'claimDaily') claimDaily(p, m.id);
+      break;
+    case 'shop':
+      if (m.action === 'buy') shopBuy(p, m.item);
+      else if (m.action === 'sell') shopSell(p, m.index);
+      break;
     case 'useSlot': useSlot(p, m.index); break;
     case 'unequip': unequip(p, m.slot); break;
     case 'party': handleParty(p, m); break;
     case 'guild': handleGuild(p, m); break;
     case 'chat': handleChat(p, m); break;
   }
+}
+
+// Aplica uma recompensa (xp/ouro/item) e avisa o cliente.
+function applyReward(p, r) {
+  if (r.gold) p.gold += r.gold;
+  if (r.xp) {
+    const lv = addXp(p, r.xp);
+    if (lv) { recompute(p); p.hp = p.maxHp; let a; while ((a = maybeAdvance(p))) { recompute(p); p.hp = p.maxHp; sys(p, `★ Evoluiu: ${a.from} → ${a.to}!`); } }
+  }
+  if (r.item) addItem(p.inventory, r.item, r.itemQty || 1);
+  sendYou(p); sendInv(p);
+}
+
+function claimMain(p) {
+  if (!quests.isMainClaimable(p)) return;
+  const main = quests.currentMain(p.quests);
+  applyReward(p, main.reward);
+  sys(p, `✔ Missão concluída: ${main.name}!`);
+  p.quests.mainIndex += 1; p.quests.mainProgress = 0;
+  sendQuests(p);
+}
+
+function claimDaily(p, id) {
+  const def = QUESTS.daily.find((x) => x.id === id);
+  if (!def || !quests.isDailyClaimable(p, def)) return;
+  applyReward(p, def.reward);
+  sys(p, `✔ Diária concluída: ${def.name}!`);
+  p.quests.dailyDone.push(id);
+  sendQuests(p);
+}
+
+function shopBuy(p, item) {
+  const entry = SHOP.buy.find((e) => e.item === item);
+  if (!entry) return;
+  if (p.gold < entry.price) return sys(p, 'Ouro insuficiente.');
+  if (!hasSpace(p.inventory, item)) return sys(p, 'Inventário cheio.');
+  p.gold -= entry.price; addItem(p.inventory, item, 1);
+  sys(p, `Comprou ${ITEMS[item]?.name || item} por ${entry.price} ouro.`);
+  sendYou(p); sendInv(p); sendQuests(p);
+}
+
+function shopSell(p, index) {
+  const slot = p.inventory[index];
+  if (!slot) return;
+  const price = SHOP.sell[slot.item];
+  if (!price) return sys(p, 'Esse item não pode ser vendido.');
+  consumeSlot(p.inventory, index); p.gold += price;
+  sys(p, `Vendeu ${ITEMS[slot.item]?.name || slot.item} por ${price} ouro.`);
+  sendYou(p); sendInv(p); sendQuests(p);
 }
 
 function useSkill(p, skillId) {
@@ -345,7 +422,9 @@ function grantRewards(killer, mob) {
       while ((adv = maybeAdvance(p))) { recompute(p); p.hp = p.maxHp; sys(p, `★ Evoluiu: ${adv.from} → ${adv.to}!`); }
     }
     sys(p, `+${xpShare} XP${goldShare > 0 ? ` · +${goldShare} ouro` : ''} (${mob.def.name})`);
+    quests.recordKill(p, mob.kind);
     sendYou(p);
+    sendQuests(p);
   }
 }
 
@@ -377,6 +456,7 @@ export function step(dt) {
       if (Math.hypot(p.x - portal.x, p.y - portal.y) < 30) {
         p.x = portal.tx; p.y = portal.ty; p.teleCd = 3;
         sys(p, portal.id === 1 ? 'Você entrou na arena de Phanton HorseFace…' : 'Você saiu da arena.');
+        if (portal.id === 1) { quests.recordVisit(p, 'arena'); sendQuests(p); }
         break;
       }
     }
@@ -403,6 +483,7 @@ export function step(dt) {
     let target = null, best = mob.def.aggroRange;
     for (const p of players.values()) {
       if (p.dead) continue;
+      if (inTown(p)) continue; // cidade é área segura: mobs não miram quem está nela
       if (mob.def.boss && (!inArena(p) || p.hp <= 1)) continue;
       const d = dist(mob, p);
       if (d < best) { best = d; target = p; }
@@ -413,7 +494,7 @@ export function step(dt) {
       if (d > reach) {
         const ux = (target.x - mob.x) / d, uy = (target.y - mob.y) / d;
         const r = moveResolved(mob.x, mob.y, ux * mob.def.speed * dt, uy * mob.def.speed * dt, mob.def.radius);
-        mob.x = r.x; mob.y = r.y;
+        if (!inTown(r)) { mob.x = r.x; mob.y = r.y; } // mobs não entram na cidade
       } else if (mob.atkCd <= 0) {
         mob.atkCd = mob.def.attackCooldown;
         if (mob.def.leaveAt1) {
@@ -476,6 +557,7 @@ export function step(dt) {
         addItem(p.inventory, g.item, g.qty);
         ground.delete(g.id);
         sendInv(p);
+        sendQuests(p);
         sys(p, `Pegou ${ITEMS[g.item]?.name || g.item}${g.qty > 1 ? ` x${g.qty}` : ''}.`);
         break;
       }

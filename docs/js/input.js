@@ -1,7 +1,7 @@
 // Entrada do jogador: teclado (movimento + atalhos) e mouse (selecionar alvo).
 // >>> FRONTEIRA DE MIGRAÇÃO <<< No Unity isto vira o Input System + raycast de clique.
 import { state, castSkill } from './state.js';
-import { toggleInventory, toggleGuild } from './ui.js';
+import { toggleInventory, toggleGuild, toggleQuests, openShop } from './ui.js';
 
 const MOVE = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right' };
 
@@ -15,6 +15,7 @@ export function setupInput(net, canvas) {
     switch (e.code) {
       case 'KeyI': toggleInventory(); break;
       case 'KeyG': toggleGuild(); break;
+      case 'KeyJ': toggleQuests(); break;
       case 'KeyP': if (state.selectedPlayerId) net.party('invite', state.selectedPlayerId); break;
       case 'KeyO': if (state.selectedPlayerId) net.guild('invite', state.selectedPlayerId); break;
       case 'KeyL': net.party('leave'); break;
@@ -52,6 +53,13 @@ function useFirstPotion(net) {
 
 // Seleciona a entidade mais próxima do clique. Mob -> vira alvo de ataque; player -> seleção (convite).
 function pick(net, wx, wy) {
+  // NPCs têm prioridade: clicar abre loja / painel de missões.
+  for (const npc of (state.world && state.world.npcs) || []) {
+    if (Math.hypot(npc.x - wx, npc.y - wy) < 24) {
+      if (npc.type === 'shop') openShop(); else toggleQuests();
+      return;
+    }
+  }
   let best = null, bestD = Infinity, bestKind = null;
   for (const m of state.mobs.values()) {
     const d = Math.hypot(m.x - wx, m.y - wy);

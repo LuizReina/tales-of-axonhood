@@ -22,6 +22,8 @@ export const state = {
   party: null,            // lista de membros ou null
   guild: null,            // {name,members,online} ou null
   invite: null,           // {from,fromId} convite pendente
+  quests: null,           // { main, dailies } estado das missões
+  shop: null,             // { buy, sell } tabela da loja (vem no init)
 
   dead: false,
   respawnAt: 0,

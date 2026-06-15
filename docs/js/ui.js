@@ -111,6 +111,60 @@ export function renderGuild() {
 export function toggleGuild() { const p = el('guildPanel'); p.hidden = !p.hidden; if (!p.hidden) renderGuild(); }
 export function toggleInventory() { const p = el('inventory'); p.hidden = !p.hidden; if (!p.hidden) renderInventory(); }
 
+// ---- Missões ----
+export function renderQuests() {
+  const body = el('questBody'), q = state.quests;
+  if (!q) { body.innerHTML = '<div class="small">Sem missões.</div>'; return; }
+  let html = '<div class="qsec">Principal</div>';
+  html += q.main ? questCard(q.main, 'main') : '<div class="small">Todas concluídas! 🎉</div>';
+  html += '<div class="qsec">Diárias</div>';
+  for (const d of q.dailies) html += questCard(d, 'daily');
+  body.innerHTML = html;
+  body.querySelectorAll('button[data-claim]').forEach((b) => b.onclick = () => {
+    if (b.dataset.kind === 'main') state._net.quest('claimMain');
+    else state._net.quest('claimDaily', b.dataset.id);
+  });
+}
+function questCard(qq, kind) {
+  const btn = qq.done ? '<button disabled>Concluída ✔</button>'
+    : qq.claimable ? `<button data-claim data-kind="${kind}" data-id="${qq.id}">Receber recompensa</button>`
+    : '<button disabled>Em progresso</button>';
+  return `<div class="quest ${qq.done ? 'done' : ''}"><div class="qn">${esc(qq.name)}</div>
+    <div class="qd">${esc(qq.desc)}</div><div class="qp">${qq.progress}/${qq.count}</div>${btn}</div>`;
+}
+export function toggleQuests() { const p = el('questPanel'); p.hidden = !p.hidden; if (!p.hidden) renderQuests(); }
+
+// ---- Loja ----
+export function openShop() { el('shopPanel').hidden = false; renderShop(); }
+export function refreshShop() { if (!el('shopPanel').hidden) renderShop(); }
+function renderShop() {
+  if (!state.shop) return;
+  el('shopGold').textContent = state.self ? state.self.gold : 0;
+  const buy = el('shopBuy'); buy.innerHTML = '';
+  for (const e of state.shop.buy) {
+    const it = state.items[e.item] || {};
+    const row = document.createElement('div'); row.className = 'shopItem';
+    row.innerHTML = `<span>${esc(it.name || e.item)}</span><span><span class="price">${e.price}🪙</span> <button>Comprar</button></span>`;
+    row.querySelector('button').onclick = () => state._net.shop('buy', { item: e.item });
+    buy.appendChild(row);
+  }
+  const sell = el('shopSell'); sell.innerHTML = '';
+  (state.self ? state.self.inventory : []).forEach((slot, i) => {
+    const price = state.shop.sell[slot.item]; if (!price) return;
+    const it = state.items[slot.item] || {};
+    const row = document.createElement('div'); row.className = 'shopItem';
+    row.innerHTML = `<span>${esc(it.name || slot.item)}${slot.qty > 1 ? ` x${slot.qty}` : ''}</span><span><span class="price">${price}🪙</span> <button>Vender</button></span>`;
+    row.querySelector('button').onclick = () => state._net.shop('sell', { index: i });
+    sell.appendChild(row);
+  });
+  if (!sell.innerHTML) sell.innerHTML = '<div class="small">Nada vendável.</div>';
+}
+
+export function showCheckin(m) {
+  el('checkinTxt').innerHTML = `🎁 <b>Recompensa diária!</b><br>+${m.gold} ouro e 1 ${esc(m.item)}`;
+  el('checkinPopup').hidden = false;
+}
+
 export function pushChat(channel, html) {
   const log = el('chatLog');
   const ln = document.createElement('div');
@@ -150,6 +204,7 @@ export function setupHandlers(net) {
     hideInvite();
   };
   el('inviteDecline').onclick = hideInvite;
+  el('checkinOk').onclick = () => { el('checkinPopup').hidden = true; };
 
   const chat = el('chatText');
   chat.onkeydown = (e) => {

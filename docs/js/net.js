@@ -34,4 +34,6 @@ export class Net {
   party(action, id) { this.send({ t: 'party', action, id }); }
   guild(action, name) { this.send({ t: 'guild', action, name }); }
   chat(channel, text) { this.send({ t: 'chat', channel, text }); }
+  quest(action, id) { this.send({ t: 'quest', action, id }); }
+  shop(action, arg) { this.send({ t: 'shop', action, ...arg }); }
 }

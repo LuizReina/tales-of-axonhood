@@ -1,0 +1,14 @@
+{
+  "buy": [
+    { "item": "potion_small", "price": 25 },
+    { "item": "sword_short", "price": 80 },
+    { "item": "staff_oak", "price": 120 },
+    { "item": "axe_heavy", "price": 200 },
+    { "item": "tunic", "price": 100 },
+    { "item": "plate", "price": 260 }
+  ],
+  "sell": {
+    "gel": 4, "fang": 10, "potion_small": 10,
+    "sword_short": 30, "staff_oak": 45, "axe_heavy": 75, "tunic": 40, "plate": 110
+  }
+}

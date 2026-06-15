@@ -96,6 +96,28 @@ canvas { display: block; margin: 0 auto; background: #20242e; }
 #hints { bottom: 12px; left: 50%; transform: translateX(-50%); color: #9aa2b1; font-size: 11px; }
 #hints b { color: #cdd3df; }
 
+#questPanel { top: 250px; right: 12px; width: 240px; max-height: 50vh; overflow-y: auto; }
+.quest { background: #11141b; border: 1px solid #333a48; border-radius: 8px; padding: 8px; margin-bottom: 8px; }
+.quest .qn { font-weight: 600; color: #ffd479; font-size: 12px; }
+.quest .qd { font-size: 11px; color: #9aa2b1; margin: 3px 0; }
+.quest .qp { font-size: 11px; color: #8ee6a5; }
+.quest button { margin-top: 6px; padding: 5px 10px; border: none; border-radius: 6px; background: #4ea1ff; color: #08111d; font-weight: 600; cursor: pointer; font-size: 12px; }
+.quest button:disabled { background: #2a3142; color: #6a7283; cursor: default; }
+.quest.done { opacity: .6; }
+.qsec { font-size: 11px; color: #79affd; margin: 4px 0 6px; text-transform: uppercase; letter-spacing: .5px; }
+
+#shopPanel { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 420px; }
+.shopHd { color: #ffd479; font-size: 12px; margin: 8px 0 6px; }
+.shopCols { display: flex; gap: 14px; }
+.shopCols > div { flex: 1; }
+.shopItem { display: flex; justify-content: space-between; align-items: center; background: #11141b;
+  border: 1px solid #333a48; border-radius: 6px; padding: 5px 8px; margin-bottom: 5px; font-size: 12px; }
+.shopItem button { padding: 3px 8px; border: none; border-radius: 5px; background: #4ea1ff; color: #08111d; font-weight: 600; cursor: pointer; }
+.shopItem .price { color: #ffd479; }
+
+#checkinPopup { top: 90px; left: 50%; transform: translateX(-50%); text-align: center; }
+#checkinPopup button { margin-top: 10px; padding: 6px 16px; border: none; border-radius: 6px; background: #4ea1ff; color: #08111d; font-weight: 700; cursor: pointer; }
+
 #hotbar { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
 .skill { width: 56px; height: 56px; border-radius: 10px; background: #1b1f29ee; border: 1px solid #39414f;
   cursor: pointer; position: relative; overflow: hidden; display: flex; flex-direction: column;

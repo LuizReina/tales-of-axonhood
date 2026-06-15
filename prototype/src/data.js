@@ -9,3 +9,5 @@ const load = (f) => JSON.parse(readFileSync(join(here, 'data', f), 'utf8'));
 
 export const ITEMS = load('items.json');
 export const MOBS = load('mobs.json');
+export const QUESTS = load('quests.json');
+export const SHOP = load('shop.json');
