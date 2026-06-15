@@ -11,6 +11,9 @@ import * as social from './social.js';
 import * as quests from './quests.js';
 
 const CHECKIN_REWARD = { gold: 50, item: 'potion_small' };
+const ENERGY_MAX = 5;
+const EVENT_INTERVAL = 90; // segundos entre eventos mundiais (invasão)
+let eventAcc = EVENT_INTERVAL - 25; // primeiro evento ~25s após subir o servidor
 
 const players = new Map(); // serverId -> player
 const mobs = new Map();    // mobId -> mob
@@ -66,7 +69,7 @@ function buildSelf(p) {
     attackRange: p.attackRange, attackKind: p.attackKind,
     inventory: p.inventory, equipment: p.equipment, skills: unlockedSkills(p),
     refine: p.refine, pets: p.pets, pet: p.pet, mounts: p.mounts, mount: p.mount, mounted: p.mounted,
-    spouseName: p.spouseName, inDuel: !!p.duel,
+    spouseName: p.spouseName, inDuel: !!p.duel, energy: p.energy, energyMax: ENERGY_MAX,
     guildName: p.guildName, partyId: p.partyId || null,
   };
 }
@@ -75,7 +78,7 @@ const sendYou = (p) => send(p, {
   level: p.level, atk: p.atk, def: p.def, gold: p.gold,
   cls: p.cls, className: CLASSES[p.cls].name, color: p.color, skills: unlockedSkills(p),
   refine: p.refine, pets: p.pets, pet: p.pet, mounts: p.mounts, mount: p.mount, mounted: p.mounted,
-  spouseName: p.spouseName, inDuel: !!p.duel,
+  spouseName: p.spouseName, inDuel: !!p.duel, energy: p.energy, energyMax: ENERGY_MAX,
 });
 const sendInv = (p) => send(p, { t: 'inv', inventory: p.inventory, equipment: p.equipment });
 const sys = (p, text) => send(p, { t: 'sys', text });
@@ -119,12 +122,14 @@ function spawnPlayer(ws, id, hello) {
     pets: saved?.pets ?? [], pet: saved?.pet ?? null,
     mounts: saved?.mounts ?? [], mount: saved?.mount ?? null, mounted: false,
     spouse: saved?.spouse ?? null, spouseName: saved?.spouseName ?? null, duel: null,
+    energy: saved?.energy ?? ENERGY_MAX, energyDate: saved?.energyDate ?? null,
     quests: quests.initQuests(saved?.quests), lastCheckin: saved?.lastCheckin ?? null,
     guildName: saved?.guildName ?? null, partyId: null,
     targetType: null, targetId: null, atkCd: 0, teleCd: 0, skillCd: {}, dead: false, respawnAt: 0,
     color: CLASSES[cls].color, hp: 1,
   };
   quests.ensureDaily(p.quests);
+  if (p.energyDate !== quests.today()) { p.energy = ENERGY_MAX; p.energyDate = quests.today(); } // energia reseta por dia
   recompute(p);
   p.hp = p.maxHp;
   players.set(id, p);
@@ -154,7 +159,7 @@ function persist(p) {
     name: p.name, cls: p.cls, level: p.level, xp: p.xp, gold: p.gold, x: p.x, y: p.y,
     inventory: p.inventory, equipment: p.equipment, refine: p.refine, guildName: p.guildName,
     pets: p.pets, pet: p.pet, mounts: p.mounts, mount: p.mount,
-    spouse: p.spouse, spouseName: p.spouseName,
+    spouse: p.spouse, spouseName: p.spouseName, energy: p.energy, energyDate: p.energyDate,
     quests: p.quests, lastCheckin: p.lastCheckin,
   });
   leaderboardStore[p.playerId] = { name: p.name, level: p.level, power: p.atk + p.def + p.maxHp };
@@ -558,6 +563,26 @@ function killMob(mob, killer) {
   // limpa quem mirava nesse mob
   for (const p of players.values()) if (p.targetType === 'mob' && p.targetId === mob.id) { p.targetType = null; p.targetId = null; }
   if (killer) grantRewards(killer, mob);
+  if (mob.temporary) mobs.delete(mob.id); // invasores do evento não renascem
+}
+
+// Evento mundial: invasão de mobs temporários no campo central, com anúncio global.
+function broadcastGlobal(text) {
+  const msg = { t: 'chat', channel: 'global', from: '⚔️ EVENTO', text };
+  for (const o of players.values()) send(o, msg);
+}
+function startEvent() {
+  const cx = 1000, cy = 760, def = MOBS.invader;
+  for (let i = 0; i < 6; i++) {
+    const id = nextMobId++;
+    mobs.set(id, {
+      id, kind: 'invader', def, spawnX: cx, spawnY: cy,
+      x: cx + (Math.random() * 140 - 70), y: cy + (Math.random() * 140 - 70),
+      hp: def.hp, atkCd: 0, dead: false, respawnAt: 0, lastAttacker: null,
+      temporary: true, despawnAt: now() + 120000,
+    });
+  }
+  broadcastGlobal('INVASÃO! 6 Invasores surgiram no campo central. Derrote-os por recompensas!');
 }
 
 function grantRewards(killer, mob) {
@@ -616,9 +641,15 @@ export function step(dt) {
     if (p.teleCd > 0) p.teleCd -= dt;
     else for (const portal of WORLD.portals) {
       if (Math.hypot(p.x - portal.x, p.y - portal.y) < 30) {
+        if (portal.cost === 'energy') {
+          if (p.energy <= 0) { p.teleCd = 1.5; sys(p, 'Sem energia para entrar na masmorra (reseta amanhã).'); break; }
+          p.energy -= 1;
+        }
         p.x = portal.tx; p.y = portal.ty; p.teleCd = 3;
-        sys(p, portal.id === 1 ? 'Você entrou na arena de Phanton HorseFace…' : 'Você saiu da arena.');
-        if (portal.id === 1) { quests.recordVisit(p, 'arena'); sendQuests(p); }
+        if (portal.id === 1) { sys(p, 'Você entrou na arena de Phanton HorseFace…'); quests.recordVisit(p, 'arena'); sendQuests(p); }
+        else if (portal.id === 3) sys(p, `Você entrou na masmorra! Energia restante: ${p.energy}.`);
+        else sys(p, 'Você voltou para a cidade.');
+        sendYou(p);
         break;
       }
     }
@@ -626,6 +657,7 @@ export function step(dt) {
 
   // 2) IA dos mobs
   for (const mob of mobs.values()) {
+    if (mob.temporary && now() >= mob.despawnAt) { mobs.delete(mob.id); continue; } // invasores somem com o tempo
     if (mob.dead) {
       if (now() >= mob.respawnAt) { mob.dead = false; mob.hp = mob.def.hp; mob.x = mob.spawnX; mob.y = mob.spawnY; mob.atkCd = 0; }
       continue;
@@ -751,6 +783,10 @@ export function step(dt) {
     for (const g of ground.values()) if (inAOI(p, g)) vg.push({ id: g.id, item: g.item, name: ITEMS[g.item]?.name, color: ITEMS[g.item]?.color, x: Math.round(g.x), y: Math.round(g.y) });
     send(p, { t: 'state', cell: me, players: vp, mobs: vm, ground: vg, target: p.targetId && p.targetType ? { kind: p.targetType, id: p.targetId } : null });
   }
+
+  // 6b) evento mundial periódico (invasão)
+  eventAcc += dt;
+  if (eventAcc >= EVENT_INTERVAL) { eventAcc = 0; startEvent(); }
 
   // 7) save periódico
   saveAcc += dt;

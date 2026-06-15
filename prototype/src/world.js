@@ -16,13 +16,24 @@ export const WORLD = {
     { x: 600, y: 1540, w: 400, h: 24 },
     { x: 600, y: 1280, w: 24, h: 284 },
     { x: 976, y: 1280, w: 24, h: 284 },
+    // Masmorra (sala selada; entra-se por portal gastando energia)
+    { x: 100, y: 1300, w: 420, h: 24 },
+    { x: 100, y: 1536, w: 420, h: 24 },
+    { x: 100, y: 1300, w: 24, h: 260 },
+    { x: 496, y: 1300, w: 24, h: 260 },
   ],
   // Portais: chegar perto teleporta para (tx,ty). Lógica de teleporte fica no servidor.
   portals: [
     { id: 1, x: 1480, y: 180, tx: 800, ty: 1500, label: 'Arena do Boss', color: '#c77dff' },
-    { id: 2, x: 800, y: 1330, tx: 140, ty: 140, label: 'Sair', color: '#7bd88f' },
+    { id: 2, x: 800, y: 1330, tx: 220, ty: 230, label: 'Sair', color: '#7bd88f' },
+    { id: 3, x: 480, y: 400, tx: 300, ty: 1510, label: 'Masmorra (1 energia)', color: '#ff6b6b', cost: 'energy' },
+    { id: 4, x: 160, y: 1350, tx: 220, ty: 230, label: 'Sair', color: '#7bd88f' },
   ],
 };
+
+// Área da masmorra (para tint visual no cliente).
+export const DUNGEON = { x: 100, y: 1300, w: 420, h: 260 };
+WORLD.dungeon = DUNGEON;
 
 // Cidade inicial: área SEGURA onde os players nascem e os NPCs ficam. Monstros não entram.
 export const TOWN = { x: 0, y: 0, w: 560, h: 440 };
@@ -50,6 +61,9 @@ export const MOB_SPAWNS = [
   { kind: 'wolf', x: 1180, y: 560 }, { kind: 'wolf', x: 980, y: 1000 },
   { kind: 'wolf', x: 1360, y: 980 }, { kind: 'wolf', x: 460, y: 1060 },
   { kind: 'horseface', x: 800, y: 1460 }, // boss, dentro da arena
+  // masmorra: lobos sombrios + guardião (mini-boss)
+  { kind: 'dire_wolf', x: 200, y: 1400 }, { kind: 'dire_wolf', x: 420, y: 1400 },
+  { kind: 'dire_wolf', x: 300, y: 1490 }, { kind: 'dungeon_guardian', x: 300, y: 1410 },
 ];
 
 function hitsRect(cx, cy, r, rect) {

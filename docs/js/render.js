@@ -33,6 +33,14 @@ export function startRender(canvas) {
       ctx.fillStyle = '#9fd29f'; ctx.font = 'bold 13px system-ui'; ctx.textAlign = 'left';
       ctx.fillText('🏰 Cidade Inicial — área segura', sx(t.x) + 10, sy(t.y) + 20);
     }
+    // masmorra (tint sombrio + rótulo)
+    if (state.world.dungeon) {
+      const d = state.world.dungeon;
+      ctx.fillStyle = '#3a2030';
+      ctx.fillRect(sx(d.x), sy(d.y), d.w, d.h);
+      ctx.fillStyle = '#d98aa6'; ctx.font = 'bold 13px system-ui'; ctx.textAlign = 'left';
+      ctx.fillText('☠ Masmorra', sx(d.x) + 10, sy(d.y) + 20);
+    }
     // grade de células de AOI
     ctx.strokeStyle = '#ffffff10';
     for (let x = 0; x <= state.world.width; x += state.cellSize) line(ctx, sx(x), sy(0), sx(x), sy(state.world.height));

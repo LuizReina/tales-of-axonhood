@@ -21,6 +21,36 @@
       { "item": "axe_heavy", "chance": 0.03, "qty": 1 }
     ]
   },
+  "dire_wolf": {
+    "name": "Lobo Sombrio", "hp": 140, "atk": 16, "def": 5, "xp": 90, "gold": [30, 55],
+    "speed": 135, "aggroRange": 280, "attackRange": 40, "attackCooldown": 0.9,
+    "radius": 19, "color": "#7a5c7a", "respawn": 12,
+    "loot": [
+      { "item": "fang", "chance": 0.9, "qty": 1 },
+      { "item": "potion_small", "chance": 0.5, "qty": 1 },
+      { "item": "plate", "chance": 0.06, "qty": 1 }
+    ]
+  },
+  "dungeon_guardian": {
+    "name": "Guardião da Masmorra", "hp": 620, "atk": 24, "def": 10, "xp": 420, "gold": [160, 280],
+    "speed": 70, "aggroRange": 340, "attackRange": 50, "attackCooldown": 1.4,
+    "radius": 28, "color": "#b0306b", "respawn": 30,
+    "loot": [
+      { "item": "plate", "chance": 0.5, "qty": 1 },
+      { "item": "axe_heavy", "chance": 0.4, "qty": 1 },
+      { "item": "potion_small", "chance": 1, "qty": 3 }
+    ]
+  },
+  "invader": {
+    "name": "Invasor", "hp": 80, "atk": 12, "def": 3, "xp": 60, "gold": [15, 30],
+    "speed": 110, "aggroRange": 320, "attackRange": 36, "attackCooldown": 1.0,
+    "radius": 16, "color": "#d65a31", "respawn": 0,
+    "loot": [
+      { "item": "potion_small", "chance": 0.6, "qty": 1 },
+      { "item": "fang", "chance": 0.5, "qty": 1 },
+      { "item": "axe_heavy", "chance": 0.05, "qty": 1 }
+    ]
+  },
   "horseface": {
     "name": "Phanton HorseFace", "hp": 999999, "atk": 0, "def": 9999, "xp": 0,
     "speed": 0, "aggroRange": 600, "attackRange": 600, "attackCooldown": 2.0,

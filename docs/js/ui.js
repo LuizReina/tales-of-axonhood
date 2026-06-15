@@ -12,6 +12,7 @@ export function renderSelf() {
   el('selfAtk').textContent = s.atk;
   el('selfDef').textContent = s.def;
   el('selfGold').textContent = s.gold ?? 0;
+  if (el('selfEnergy') && s.energy != null) el('selfEnergy').textContent = `${s.energy}/${s.energyMax}`;
   el('selfGuild').textContent = (s.guildName ? `🛡 ${s.guildName}` : 'sem guilda') + (s.spouseName ? ` · 💍 ${s.spouseName}` : '');
   bar('hpFill', 'hpTxt', s.hp, s.maxHp, `${s.hp}/${s.maxHp}`);
   bar('xpFill', 'xpTxt', s.xp, s.xpNext, `XP ${s.xp}/${s.xpNext}`);

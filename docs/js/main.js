@@ -6,7 +6,7 @@ import { setupInput } from './input.js';
 import { startRender } from './render.js';
 import * as ui from './ui.js';
 
-export const VERSION = 'v0.6.0';
+export const VERSION = 'v1.0.0';
 const el = (id) => document.getElementById(id);
 const canvas = el('game');
 if (el('version')) el('version').textContent = `Tales of Axonhood ${VERSION}`;

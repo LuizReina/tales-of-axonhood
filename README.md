@@ -1,10 +1,8 @@
 # Tales of Axonhood
 
-Protótipo de **MMORPG** (estilo *Tales of Wind* / *Magicmon*) com **servidor autoritativo**:
-classes (Guerreiro/Mago), combate, mobs com IA, XP/level, loot, inventário/equipamento,
-party com XP dividido, guilda (com convite), chat, boss especial e persistência.
+Protótipo de **MMORPG** (estilo *Tales of Wind* / *Magicmon*) com **servidor autoritativo**.
 
-> **Versão atual:** v0.2.0
+> **Versão atual:** v1.0.0
 
 ## Jogar localmente
 
@@ -16,18 +14,35 @@ npm start        # http://localhost:3000
 
 Abra **http://localhost:3000**. Para multiplayer, abra outra aba (cada aba é um herói).
 
+## Sistemas implementados
+
+- **Cidade inicial**: área segura onde você nasce e os NPCs ficam (monstros não entram).
+- **Classes em cadeia** (evoluem por nível): Guerreiro→Cavaleiro→Senhor da Guerra · Mago→Feiticeiro→Arquimago.
+- **Skills ativas** desbloqueadas por nível (hotbar 1–4); combate com mobs (IA), morte/respawn.
+- **XP/level**, **Ouro**, **inventário/equipamento**, loot no chão.
+- **Quests** principais (cadeia) e **diárias**; **Loja** (NPC), **check-in diário**.
+- **Refino** de equipamento (NPC Ferreiro), **Pets** (bônus) e **Montarias** (velocidade) — NPC Domadora.
+- **Party** (XP dividido), **Guilda** (com convite), **Chat** (global/grupo/guilda).
+- **Duelo PvP**, **Ranking de poder**, **Casamento** (+5% HP).
+- **Boss** Phanton HorseFace (arena por portal), **Masmorra** com energia diária e mini-boss, **Evento mundial** (invasão periódica).
+- **Persistência** do personagem e **AOI** (só recebe quem está perto).
+
+## Controles
+
 | Ação | Comando |
 |---|---|
 | Mover | WASD / setas |
-| Atacar (mob) | clique no mob |
-| Selecionar player | clique no player |
-| Inventário · Poção | I · Q |
+| Atacar mob / selecionar player / falar com NPC | clique |
+| Skills | 1 – 4 |
+| Missões · Inventário · Poção | J · I · Q |
+| Montar/desmontar · Ranking | H · K |
+| Duelo · Casar (no player selecionado) | T · M |
 | Grupo: convidar / sair | P · L |
 | Guilda: painel / convidar | G · O |
 | Chat | Enter |
 
-**Boss — Phanton HorseFace:** entre pelo portal **"Arena do Boss"** (canto superior direito do mapa).
-Ele ataca à distância, nunca mata (deixa você sempre com 1 de HP) e solta frases na tela. Saia pelo portal **"Sair"**.
+**Boss / Masmorra:** use os **portais** no mapa. A arena do boss fica no canto superior direito; a masmorra
+custa 1 de energia (reseta por dia) e tem um mini-boss. Um **evento de invasão** ocorre periodicamente no campo central.
 
 ## GitHub Pages (cliente publicado)
 
