@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tales of Axonhood — protótipo</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- Tela de criação/entrada -->
+  <div id="login">
+    <div class="card">
+      <h1>Tales of Axonhood</h1>
+      <p class="sub">protótipo de MMORPG</p>
+      <input id="name" placeholder="Nome do herói" maxlength="16" autocomplete="off" />
+      <div class="classes">
+        <button class="cls sel" data-cls="warrior"><b>⚔️ Guerreiro</b><span>tanque corpo-a-corpo</span></button>
+        <button class="cls" data-cls="mage"><b>🔮 Mago</b><span>dano à distância</span></button>
+      </div>
+      <button id="enter">Entrar no mundo</button>
+      <p class="hint" id="loginHint"></p>
+    </div>
+  </div>
+
+  <canvas id="game" width="960" height="600"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" hidden>
+    <div id="self" class="panel">
+      <div class="row"><b id="selfName"></b> <span id="selfCls" class="tag"></span> <span class="lvl">Lv <span id="selfLvl"></span></span></div>
+      <div class="bar hp"><span id="hpFill"></span><label id="hpTxt"></label></div>
+      <div class="bar xp"><span id="xpFill"></span><label id="xpTxt"></label></div>
+      <div class="row small">ATK <b id="selfAtk"></b> · DEF <b id="selfDef"></b> · <span id="selfGuild"></span></div>
+    </div>
+
+    <div id="targetPanel" class="panel" hidden>
+      <div class="row"><span id="targetName"></span></div>
+      <div class="bar hp small"><span id="tHpFill"></span><label id="tHpTxt"></label></div>
+    </div>
+
+    <div id="partyPanel" class="panel" hidden>
+      <h3>Grupo</h3>
+      <div id="partyList"></div>
+    </div>
+
+    <div id="guildPanel" class="panel" hidden>
+      <h3>Guilda <button class="x" data-close="guildPanel">×</button></h3>
+      <div id="guildBody"></div>
+    </div>
+
+    <div id="inventory" class="panel" hidden>
+      <h3>Inventário <button class="x" data-close="inventory">×</button></h3>
+      <div class="equip">
+        <div class="eqslot" data-eq="weapon"><label>Arma</label><div id="eqWeapon" class="cell"></div></div>
+        <div class="eqslot" data-eq="armor"><label>Armadura</label><div id="eqArmor" class="cell"></div></div>
+      </div>
+      <div id="invGrid" class="grid"></div>
+      <p class="hint">Clique num item para usar/equipar. Clique no equipado para tirar.</p>
+    </div>
+
+    <div id="chat" class="panel">
+      <div id="chatLog"></div>
+      <div class="chatInput">
+        <select id="chatCh">
+          <option value="global">Global</option>
+          <option value="party">Grupo</option>
+          <option value="guild">Guilda</option>
+        </select>
+        <input id="chatText" maxlength="200" placeholder="Enter para conversar…" autocomplete="off" />
+      </div>
+    </div>
+
+    <div id="invitePopup" class="panel" hidden>
+      <span id="inviteTxt"></span>
+      <div class="row">
+        <button id="inviteAccept">Aceitar</button>
+        <button id="inviteDecline" class="ghost">Recusar</button>
+      </div>
+    </div>
+
+    <div id="deathOverlay" hidden>
+      <div>Você caiu!</div>
+      <div class="small">Renascendo em <span id="respawnSec">…</span>s</div>
+    </div>
+
+    <div id="hints" class="panel">
+      <b>WASD</b> mover · <b>clique</b> alvo · <b>I</b> inventário · <b>P</b> convidar alvo · <b>L</b> sair do grupo · <b>G</b> guilda · <b>Q</b> poção · <b>Enter</b> chat
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "potion_small": { "name": "Poção de Vida", "type": "consumable", "heal": 45, "stack": 99, "color": "#ff5d73" },
+  "sword_short":  { "name": "Espada Curta", "type": "weapon", "atk": 5, "color": "#cfd8dc" },
+  "axe_heavy":    { "name": "Machado Pesado", "type": "weapon", "atk": 12, "color": "#b0bec5" },
+  "staff_oak":    { "name": "Cajado de Carvalho", "type": "weapon", "atk": 9, "color": "#a1887f" },
+  "tunic":        { "name": "Túnica de Couro", "type": "armor", "def": 3, "hp": 20, "color": "#8d6e63" },
+  "plate":        { "name": "Peitoral de Ferro", "type": "armor", "def": 7, "hp": 45, "color": "#90a4ae" },
+  "fang":         { "name": "Presa de Lobo", "type": "material", "color": "#eceff1" },
+  "gel":          { "name": "Gosma", "type": "material", "color": "#7bd88f" }
+}

@@ -1,0 +1,24 @@
+{
+  "slime": {
+    "name": "Slime", "hp": 30, "atk": 4, "def": 0, "xp": 12,
+    "speed": 55, "aggroRange": 170, "attackRange": 34, "attackCooldown": 1.2,
+    "radius": 15, "color": "#7bd88f", "respawn": 6,
+    "loot": [
+      { "item": "gel", "chance": 0.8, "qty": 1 },
+      { "item": "potion_small", "chance": 0.25, "qty": 1 },
+      { "item": "sword_short", "chance": 0.05, "qty": 1 }
+    ]
+  },
+  "wolf": {
+    "name": "Lobo", "hp": 68, "atk": 9, "def": 2, "xp": 28,
+    "speed": 120, "aggroRange": 250, "attackRange": 38, "attackCooldown": 1.0,
+    "radius": 17, "color": "#c98aa6", "respawn": 10,
+    "loot": [
+      { "item": "fang", "chance": 0.7, "qty": 1 },
+      { "item": "potion_small", "chance": 0.3, "qty": 1 },
+      { "item": "tunic", "chance": 0.08, "qty": 1 },
+      { "item": "staff_oak", "chance": 0.04, "qty": 1 },
+      { "item": "axe_heavy", "chance": 0.03, "qty": 1 }
+    ]
+  }
+}

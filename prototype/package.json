@@ -1,0 +1,12 @@
+{
+  "name": "mmo-prototype",
+  "version": "0.1.0",
+  "description": "Protótipo base: servidor autoritativo + cliente Canvas. Andar num mapa pequeno.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
