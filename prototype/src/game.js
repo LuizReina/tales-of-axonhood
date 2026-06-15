@@ -3,7 +3,7 @@
 // O cliente (web hoje, Unity depois) só manda intenção e desenha o que recebe daqui.
 import { PLAYER, CELL_SIZE, AOI_RADIUS, CLASSES, STARTER_CLASSES, DEFAULT_CLASS, SAVE_INTERVAL } from './config.js';
 import { WORLD, PLAYER_SPAWN, MOB_SPAWNS, ARENA, TOWN, moveResolved, cellOf } from './world.js';
-import { ITEMS, MOBS, SHOP, QUESTS } from './data.js';
+import { ITEMS, MOBS, SHOP, QUESTS, PETS, MOUNTS } from './data.js';
 import { deriveStats, addXp, xpForNext, unlockedSkills, maybeAdvance } from './progression.js';
 import { addItem, consumeSlot, hasSpace } from './inventory.js';
 import { loadCharacter, saveCharacter, guildStore, flush } from './persistence.js';
@@ -50,6 +50,8 @@ export function initMobs() {
 function recompute(p) {
   const s = deriveStats(p);
   Object.assign(p, s);
+  const pet = p.pet && PETS[p.pet]; // bônus passivo do pet ativo
+  if (pet) { p.atk += pet.bonus.atk || 0; p.def += pet.bonus.def || 0; p.maxHp += pet.bonus.hp || 0; }
   p.color = CLASSES[p.cls].color;
   if (p.hp > p.maxHp) p.hp = p.maxHp;
 }
@@ -61,6 +63,7 @@ function buildSelf(p) {
     hp: p.hp, maxHp: p.maxHp, atk: p.atk, def: p.def,
     attackRange: p.attackRange, attackKind: p.attackKind,
     inventory: p.inventory, equipment: p.equipment, skills: unlockedSkills(p),
+    refine: p.refine, pets: p.pets, pet: p.pet, mounts: p.mounts, mount: p.mount, mounted: p.mounted,
     guildName: p.guildName, partyId: p.partyId || null,
   };
 }
@@ -68,6 +71,7 @@ const sendYou = (p) => send(p, {
   t: 'you', hp: p.hp, maxHp: p.maxHp, xp: p.xp, xpNext: xpForNext(p.level),
   level: p.level, atk: p.atk, def: p.def, gold: p.gold,
   cls: p.cls, className: CLASSES[p.cls].name, color: p.color, skills: unlockedSkills(p),
+  refine: p.refine, pets: p.pets, pet: p.pet, mounts: p.mounts, mount: p.mount, mounted: p.mounted,
 });
 const sendInv = (p) => send(p, { t: 'inv', inventory: p.inventory, equipment: p.equipment });
 const sys = (p, text) => send(p, { t: 'sys', text });
@@ -107,6 +111,8 @@ function spawnPlayer(ws, id, hello) {
     inventory: saved?.inventory ?? [{ item: 'potion_small', qty: 3 }],
     equipment: saved?.equipment ?? { weapon: cls === 'mage' ? 'staff_oak' : 'sword_short', armor: null },
     refine: saved?.refine ?? {},
+    pets: saved?.pets ?? [], pet: saved?.pet ?? null,
+    mounts: saved?.mounts ?? [], mount: saved?.mount ?? null, mounted: false,
     quests: quests.initQuests(saved?.quests), lastCheckin: saved?.lastCheckin ?? null,
     guildName: saved?.guildName ?? null, partyId: null,
     targetType: null, targetId: null, atkCd: 0, teleCd: 0, skillCd: {}, dead: false, respawnAt: 0,
@@ -118,7 +124,7 @@ function spawnPlayer(ws, id, hello) {
   players.set(id, p);
 
   send(p, {
-    t: 'init', id, world: WORLD, cellSize: CELL_SIZE, aoiRadius: AOI_RADIUS, self: buildSelf(p), items: ITEMS, shop: SHOP,
+    t: 'init', id, world: WORLD, cellSize: CELL_SIZE, aoiRadius: AOI_RADIUS, self: buildSelf(p), items: ITEMS, shop: SHOP, pets: PETS, mounts: MOUNTS,
   });
   if (p.guildName) sendGuild(p);
 
@@ -141,6 +147,7 @@ function persist(p) {
   saveCharacter(p.playerId, {
     name: p.name, cls: p.cls, level: p.level, xp: p.xp, gold: p.gold, x: p.x, y: p.y,
     inventory: p.inventory, equipment: p.equipment, refine: p.refine, guildName: p.guildName,
+    pets: p.pets, pet: p.pet, mounts: p.mounts, mount: p.mount,
     quests: p.quests, lastCheckin: p.lastCheckin,
   });
 }
@@ -164,6 +171,16 @@ function route(p, m) {
     case 'shop':
       if (m.action === 'buy') shopBuy(p, m.item);
       else if (m.action === 'sell') shopSell(p, m.index);
+      break;
+    case 'refine': refineEquip(p, m.slot); break;
+    case 'pet':
+      if (m.action === 'buy') petBuy(p, m.id);
+      else if (m.action === 'activate') petActivate(p, m.id);
+      break;
+    case 'mount':
+      if (m.action === 'buy') mountBuy(p, m.id);
+      else if (m.action === 'toggle') mountToggle(p);
+      else if (m.action === 'use') mountUse(p, m.id);
       break;
     case 'useSlot': useSlot(p, m.index); break;
     case 'unequip': unequip(p, m.slot); break;
@@ -220,6 +237,63 @@ function shopSell(p, index) {
   consumeSlot(p.inventory, index); p.gold += price;
   sys(p, `Vendeu ${ITEMS[slot.item]?.name || slot.item} por ${price} ouro.`);
   sendYou(p); sendInv(p); sendQuests(p);
+}
+
+const REFINE_MAX = 10;
+const refineCost = (level) => 40 * (level + 1); // ouro para ir de `level` para `level+1`
+
+function refineEquip(p, slot) {
+  if (slot !== 'weapon' && slot !== 'armor') return;
+  const id = p.equipment[slot];
+  if (!id) return sys(p, 'Equipe um item nesse espaço primeiro.');
+  const cur = p.refine[slot] || 0;
+  if (cur >= REFINE_MAX) return sys(p, 'Refino no máximo (+10).');
+  const cost = refineCost(cur);
+  if (p.gold < cost) return sys(p, `Ouro insuficiente (precisa ${cost}).`);
+  p.gold -= cost;
+  p.refine[slot] = cur + 1;
+  recompute(p);
+  sys(p, `${ITEMS[id]?.name || id} refinado para +${p.refine[slot]}!`);
+  sendYou(p);
+}
+
+function petBuy(p, id) {
+  const pet = PETS[id];
+  if (!pet) return;
+  if (p.pets.includes(id)) return sys(p, 'Você já tem esse pet.');
+  if (p.gold < pet.price) return sys(p, 'Ouro insuficiente.');
+  p.gold -= pet.price; p.pets.push(id); p.pet = id; // compra já ativa
+  recompute(p);
+  sys(p, `Adquiriu o pet ${pet.name}!`);
+  sendYou(p);
+}
+function petActivate(p, id) {
+  if (id !== null && !p.pets.includes(id)) return;
+  p.pet = id; // null = guardar
+  recompute(p);
+  sendYou(p);
+}
+
+function mountBuy(p, id) {
+  const mt = MOUNTS[id];
+  if (!mt) return;
+  if (p.mounts.includes(id)) return sys(p, 'Você já tem essa montaria.');
+  if (p.gold < mt.price) return sys(p, 'Ouro insuficiente.');
+  p.gold -= mt.price; p.mounts.push(id); p.mount = id;
+  sys(p, `Adquiriu a montaria ${mt.name}!`);
+  sendYou(p);
+}
+function mountToggle(p) {
+  if (!p.mount) return sys(p, 'Você não tem montaria. Fale com a Domadora.');
+  p.mounted = !p.mounted;
+  sys(p, p.mounted ? `Montou em ${MOUNTS[p.mount].name}.` : 'Desmontou.');
+  sendYou(p);
+}
+function mountUse(p, id) {
+  if (!p.mounts.includes(id)) return;
+  if (p.mount === id && p.mounted) { p.mounted = false; sys(p, 'Desmontou.'); }
+  else { p.mount = id; p.mounted = true; sys(p, `Montou em ${MOUNTS[id].name}.`); }
+  sendYou(p);
 }
 
 function useSkill(p, skillId) {
@@ -445,7 +519,8 @@ export function step(dt) {
     let dy = (p.input.down ? 1 : 0) - (p.input.up ? 1 : 0);
     if (dx || dy) {
       const len = Math.hypot(dx, dy);
-      const r = moveResolved(p.x, p.y, (dx / len) * PLAYER.speed * dt, (dy / len) * PLAYER.speed * dt, PLAYER.radius);
+      const spd = PLAYER.speed * (p.mounted && p.mount && MOUNTS[p.mount] ? MOUNTS[p.mount].speedMul : 1);
+      const r = moveResolved(p.x, p.y, (dx / len) * spd * dt, (dy / len) * spd * dt, PLAYER.radius);
       p.x = r.x; p.y = r.y;
     }
     if (p.atkCd > 0) p.atkCd -= dt;
@@ -569,7 +644,7 @@ export function step(dt) {
     if (p.ws.readyState !== 1) continue;
     const me = cellOf(p.x, p.y);
     const vp = [], vm = [], vg = [];
-    for (const o of players.values()) if (inAOI(p, o)) vp.push({ id: o.id, name: o.name, cls: o.cls, color: o.color, x: Math.round(o.x), y: Math.round(o.y), hp: o.hp, maxHp: o.maxHp, level: o.level, dead: o.dead });
+    for (const o of players.values()) if (inAOI(p, o)) vp.push({ id: o.id, name: o.name, cls: o.cls, color: o.color, x: Math.round(o.x), y: Math.round(o.y), hp: o.hp, maxHp: o.maxHp, level: o.level, dead: o.dead, petColor: o.pet && PETS[o.pet] ? PETS[o.pet].color : null, mounted: o.mounted });
     for (const mob of mobs.values()) if (!mob.dead && inAOI(p, mob)) vm.push({ id: mob.id, kind: mob.kind, name: mob.def.name, color: mob.def.color, radius: mob.def.radius, x: Math.round(mob.x), y: Math.round(mob.y), hp: mob.hp, maxHp: mob.def.hp, boss: !!mob.def.boss, say: (mob.say && now() < mob.say.until) ? mob.say.text : null });
     for (const g of ground.values()) if (inAOI(p, g)) vg.push({ id: g.id, item: g.item, name: ITEMS[g.item]?.name, color: ITEMS[g.item]?.color, x: Math.round(g.x), y: Math.round(g.y) });
     send(p, { t: 'state', cell: me, players: vp, mobs: vm, ground: vg, target: p.targetId && p.targetType ? { kind: p.targetType, id: p.targetId } : null });

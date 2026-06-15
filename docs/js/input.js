@@ -1,7 +1,7 @@
 // Entrada do jogador: teclado (movimento + atalhos) e mouse (selecionar alvo).
 // >>> FRONTEIRA DE MIGRAÇÃO <<< No Unity isto vira o Input System + raycast de clique.
 import { state, castSkill } from './state.js';
-import { toggleInventory, toggleGuild, toggleQuests, openShop } from './ui.js';
+import { toggleInventory, toggleGuild, toggleQuests, openShop, openSmith, openTamer } from './ui.js';
 
 const MOVE = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right' };
 
@@ -20,6 +20,7 @@ export function setupInput(net, canvas) {
       case 'KeyO': if (state.selectedPlayerId) net.guild('invite', state.selectedPlayerId); break;
       case 'KeyL': net.party('leave'); break;
       case 'KeyQ': useFirstPotion(net); break;
+      case 'KeyH': net.mount('toggle'); break;
       case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': {
         const idx = Number(e.code.slice(5)) - 1;
         const sk = state.self && state.self.skills && state.self.skills[idx];
@@ -56,7 +57,10 @@ function pick(net, wx, wy) {
   // NPCs têm prioridade: clicar abre loja / painel de missões.
   for (const npc of (state.world && state.world.npcs) || []) {
     if (Math.hypot(npc.x - wx, npc.y - wy) < 24) {
-      if (npc.type === 'shop') openShop(); else toggleQuests();
+      if (npc.type === 'shop') openShop();
+      else if (npc.type === 'smith') openSmith();
+      else if (npc.type === 'tamer') openTamer();
+      else toggleQuests();
       return;
     }
   }

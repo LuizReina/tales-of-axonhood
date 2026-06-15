@@ -19,9 +19,9 @@ export function deriveStats(player) {
     const id = player.equipment[slot];
     const it = id && ITEMS[id];
     if (it) {
-      const ref = (player.refine && player.refine[slot]) || 0; // bônus de refino (fase futura)
-      atk += (it.atk || 0) + (it.atk ? ref : 0);
-      def += (it.def || 0) + (it.def ? ref : 0);
+      const ref = (player.refine && player.refine[slot]) || 0; // +2 atk/def por nível de refino
+      atk += (it.atk || 0) + (it.atk ? ref * 2 : 0);
+      def += (it.def || 0) + (it.def ? ref * 2 : 0);
       maxHp += it.hp || 0;
     }
   }

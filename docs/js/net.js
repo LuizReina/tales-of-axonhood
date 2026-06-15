@@ -36,4 +36,7 @@ export class Net {
   chat(channel, text) { this.send({ t: 'chat', channel, text }); }
   quest(action, id) { this.send({ t: 'quest', action, id }); }
   shop(action, arg) { this.send({ t: 'shop', action, ...arg }); }
+  refine(slot) { this.send({ t: 'refine', slot }); }
+  pet(action, id) { this.send({ t: 'pet', action, id }); }
+  mount(action, id) { this.send({ t: 'mount', action, id }); }
 }

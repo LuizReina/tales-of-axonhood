@@ -115,6 +115,9 @@ canvas { display: block; margin: 0 auto; background: #20242e; }
 .shopItem button { padding: 3px 8px; border: none; border-radius: 5px; background: #4ea1ff; color: #08111d; font-weight: 600; cursor: pointer; }
 .shopItem .price { color: #ffd479; }
 
+#smithPanel, #tamerPanel { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 360px; max-height: 70vh; overflow-y: auto; }
+.tamerHd { color: #ffd479; font-size: 12px; margin: 8px 0 6px; }
+
 #checkinPopup { top: 90px; left: 50%; transform: translateX(-50%); text-align: center; }
 #checkinPopup button { margin-top: 10px; padding: 6px 16px; border: none; border-radius: 6px; background: #4ea1ff; color: #08111d; font-weight: 700; cursor: pointer; }
 

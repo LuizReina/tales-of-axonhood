@@ -83,7 +83,18 @@ export function startRender(canvas) {
       const r = state.rendered.get('p' + p.id) || p;
       const isMe = p.id === state.myId;
       const isSel = state.selectedPlayerId === p.id;
-      drawEntity(ctx, sx(r.x), sy(r.y), 13, p.color, p.name + (isMe ? '' : ''), p.hp, p.maxHp,
+      // pet seguindo (atrás-esquerda do dono)
+      if (p.petColor && !p.dead) {
+        ctx.beginPath(); ctx.arc(sx(r.x) - 20, sy(r.y) + 10, 7, 0, Math.PI * 2);
+        ctx.fillStyle = p.petColor; ctx.fill();
+        ctx.strokeStyle = '#0006'; ctx.stroke();
+      }
+      // anel de montaria sob o player
+      if (p.mounted && !p.dead) {
+        ctx.beginPath(); ctx.ellipse(sx(r.x), sy(r.y) + 12, 18, 7, 0, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffb62755'; ctx.fill(); ctx.strokeStyle = '#ffb627'; ctx.stroke();
+      }
+      drawEntity(ctx, sx(r.x), sy(r.y), 13, p.color, p.name, p.hp, p.maxHp,
         isSel, '#7bd88f', isMe, p.level, p.dead);
     }
 

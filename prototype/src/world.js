@@ -32,6 +32,8 @@ WORLD.town = TOWN;
 WORLD.npcs = [
   { id: 'shop', type: 'shop', name: 'Bartô', role: 'Mercador', x: 280, y: 140, color: '#ffd479' },
   { id: 'quest', type: 'quest', name: 'Eldra', role: 'Arauta de Missões', x: 150, y: 310, color: '#7bd88f' },
+  { id: 'smith', type: 'smith', name: 'Gorin', role: 'Ferreiro', x: 410, y: 170, color: '#b0bec5' },
+  { id: 'tamer', type: 'tamer', name: 'Fera', role: 'Domadora', x: 440, y: 340, color: '#c98aa6' },
 ];
 
 // Retângulo interno da arena (usado para confinar o boss aos players que estão lá dentro).

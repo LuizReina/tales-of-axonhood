@@ -24,6 +24,8 @@ export const state = {
   invite: null,           // {from,fromId} convite pendente
   quests: null,           // { main, dailies } estado das missões
   shop: null,             // { buy, sell } tabela da loja (vem no init)
+  petCatalog: null,       // catálogo de pets (vem no init)
+  mountCatalog: null,     // catálogo de montarias (vem no init)
 
   dead: false,
   respawnAt: 0,

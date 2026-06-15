@@ -160,6 +160,53 @@ function renderShop() {
   if (!sell.innerHTML) sell.innerHTML = '<div class="small">Nada vendável.</div>';
 }
 
+// ---- Ferreiro (refino) ----
+export function openSmith() { el('smithPanel').hidden = false; renderSmith(); }
+export function refreshSmith() { if (!el('smithPanel').hidden) renderSmith(); }
+function renderSmith() {
+  const s = state.self; el('smithGold').textContent = s.gold;
+  const body = el('smithBody'); body.innerHTML = '';
+  for (const slot of ['weapon', 'armor']) {
+    const id = s.equipment[slot], lvl = (s.refine && s.refine[slot]) || 0;
+    const it = id ? state.items[id] : null, cost = 40 * (lvl + 1);
+    const row = document.createElement('div'); row.className = 'shopItem';
+    if (!it) row.innerHTML = `<span>${slot === 'weapon' ? 'Arma' : 'Armadura'}: <span class="small">vazio</span></span>`;
+    else if (lvl >= 10) row.innerHTML = `<span>${esc(it.name)} <b>+${lvl}</b> (máx)</span>`;
+    else {
+      row.innerHTML = `<span>${esc(it.name)} <b>+${lvl}</b></span><span><span class="price">${cost}🪙</span> <button>Refinar → +${lvl + 1}</button></span>`;
+      row.querySelector('button').onclick = () => state._net.refine(slot);
+    }
+    body.appendChild(row);
+  }
+}
+
+// ---- Domadora (pets + montarias) ----
+export function openTamer() { el('tamerPanel').hidden = false; renderTamer(); }
+export function refreshTamer() { if (!el('tamerPanel').hidden) renderTamer(); }
+function renderTamer() {
+  const s = state.self; el('tamerGold').textContent = s.gold;
+  const petList = el('petList'); petList.innerHTML = '';
+  for (const [id, pet] of Object.entries(state.petCatalog || {})) {
+    const owned = s.pets.includes(id), active = s.pet === id;
+    const bonus = Object.entries(pet.bonus).map(([k, v]) => `+${v} ${k}`).join(' ');
+    const row = document.createElement('div'); row.className = 'shopItem';
+    const btn = active ? '<button disabled>Ativo</button>' : owned ? '<button>Ativar</button>' : '<button>Comprar</button>';
+    row.innerHTML = `<span>${esc(pet.name)} <span class="small">(${bonus})</span></span><span>${owned ? '' : `<span class="price">${pet.price}🪙</span> `}${btn}</span>`;
+    const b = row.querySelector('button');
+    if (!b.disabled) b.onclick = () => (owned ? state._net.pet('activate', id) : state._net.pet('buy', id));
+    petList.appendChild(row);
+  }
+  const mountList = el('mountList'); mountList.innerHTML = '';
+  for (const [id, mt] of Object.entries(state.mountCatalog || {})) {
+    const owned = s.mounts.includes(id), riding = s.mount === id && s.mounted;
+    const row = document.createElement('div'); row.className = 'shopItem';
+    const btn = owned ? `<button>${riding ? 'Desmontar' : 'Montar'}</button>` : '<button>Comprar</button>';
+    row.innerHTML = `<span>${esc(mt.name)} <span class="small">(×${mt.speedMul} veloc.)</span></span><span>${owned ? '' : `<span class="price">${mt.price}🪙</span> `}${btn}</span>`;
+    row.querySelector('button').onclick = () => (owned ? state._net.mount('use', id) : state._net.mount('buy', id));
+    mountList.appendChild(row);
+  }
+}
+
 export function showCheckin(m) {
   el('checkinTxt').innerHTML = `🎁 <b>Recompensa diária!</b><br>+${m.gold} ouro e 1 ${esc(m.item)}`;
   el('checkinPopup').hidden = false;

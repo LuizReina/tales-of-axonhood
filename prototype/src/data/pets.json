@@ -1,0 +1,11 @@
+{
+  "pets": {
+    "wolf_cub": { "name": "Filhote de Lobo", "price": 150, "bonus": { "atk": 4 }, "color": "#c98aa6" },
+    "fairy":    { "name": "Fada Curandeira", "price": 220, "bonus": { "hp": 45 }, "color": "#7bd88f" },
+    "golem":    { "name": "Golem Mini", "price": 320, "bonus": { "def": 6, "hp": 30 }, "color": "#90a4ae" }
+  },
+  "mounts": {
+    "horse": { "name": "Corcel", "price": 260, "speedMul": 1.6, "color": "#a1887f" },
+    "tiger": { "name": "Tigre de Guerra", "price": 520, "speedMul": 1.9, "color": "#ffb627" }
+  }
+}

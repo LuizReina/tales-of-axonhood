@@ -11,3 +11,6 @@ export const ITEMS = load('items.json');
 export const MOBS = load('mobs.json');
 export const QUESTS = load('quests.json');
 export const SHOP = load('shop.json');
+const pets = load('pets.json');
+export const PETS = pets.pets;
+export const MOUNTS = pets.mounts;
